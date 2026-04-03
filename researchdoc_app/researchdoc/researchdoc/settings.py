@@ -139,3 +139,117 @@ else:
         }
     }
 
+# Authentication
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# Where Django redirects after login/logout
+_prefix = FORCE_SCRIPT_NAME or ''  # e.g. '/researchdoc' on UQCloud, '' locally
+LOGIN_URL = f'{_prefix}/accounts/login/'
+LOGIN_REDIRECT_URL = f'{_prefix}/dashboard/'
+LOGOUT_REDIRECT_URL = f'{_prefix}/' if _prefix else '/'
+ACCOUNT_LOGOUT_REDIRECT_URL = f'{_prefix}/' if _prefix else '/'
+
+# Allauth settings
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+ACCOUNT_SIGNUP_FIELDS = [
+    'username*', 'email*', 'password1*', 'password2*',
+]
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_UNIQUE_EMAIL = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+# Wire the custom signup form (captures first/last name in addition to the
+# default email/password/username fields).
+ACCOUNT_FORMS = {
+    'signup': 'researchapp.forms.CustomSignupForm',
+}
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+    },
+}
+# Google client_id and secret are stored in the database via the admin panel
+# at /researchdoc/admin/socialaccount/socialapp/
+
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+# Static files (Applied Class 6)
+STATIC_URL = '/researchdoc_static/'
+STATIC_ROOT = os.getenv('DJANGO_STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
+
+# Media files (user uploads)
+MEDIA_URL = '/researchdoc_media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CSRF — required for HTTPS on UQCloud
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.uqcloud.net',
+    'https://*.eait.uq.edu.au',
+]
+
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
+
+
+# Email backend
+# In development we print emails to the console (no real SMTP needed).
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL', 'ResearchDoc <noreply@researchdoc.test>',
+)
+
+# File upload limits (25 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 26214400
+FILE_UPLOAD_MAX_MEMORY_SIZE = 26214400
+
+# LLM configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+LLM_MODEL = os.getenv('LLM_MODEL', 'gpt-4o-mini')
