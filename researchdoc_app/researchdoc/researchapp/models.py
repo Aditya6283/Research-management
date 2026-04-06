@@ -191,3 +191,33 @@ def get_active_subscription(user):
         owner=user, name=f"{user.username}'s workspace",
         plan_type=Subscription.FREE, is_active=True,
     )
+
+
+class ResearchProject(models.Model):
+    """One research project the main workspace concept of the app.
+
+    A project is just a labelled container for resources, summaries and
+    comparison tables. The owner ForeignKey is what enforces
+    "everyone sees their own projects only".
+    """
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='projects')
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.SET_NULL,
+        related_name='projects', null=True, blank=True,
+    )
+    is_archived = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse('project_detail', args=[self.pk])
+
