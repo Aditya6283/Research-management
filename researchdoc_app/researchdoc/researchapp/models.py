@@ -221,3 +221,63 @@ class ResearchProject(models.Model):
     def get_absolute_url(self):
         return reverse('project_detail', args=[self.pk])
 
+
+class Resource(models.Model):
+    """A paper PDF or an external link saved into a project.
+
+    The bibliographic fields (authors, year, venue, ...) are what the
+    citation formatter in citations.py turns into APA / IEEE / MLA /
+    Chicago / Harvard strings.
+
+    extracted_text is the plain text we pull out of the PDF on upload
+    that's what makes full-text search and AI summarisation possible
+    without re-parsing the file every time.
+    """
+    PAPER = 'paper'
+    LINK = 'link'
+    TYPE_CHOICES = [(PAPER, 'Paper'), (LINK, 'Link')]
+
+    project = models.ForeignKey(
+        ResearchProject, on_delete=models.CASCADE, related_name='resources',
+    )
+    title = models.CharField(max_length=300)
+    description = models.TextField(blank=True)
+    resource_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    file = models.FileField(upload_to='papers/', blank=True, null=True)
+    url = models.URLField(blank=True)
+
+    # Bibliographic metadata used to render citations in
+    # APA / IEEE / MLA / Chicago / Harvard formats.
+    authors = models.CharField(
+        max_length=500, blank=True,
+        help_text="Authors as 'Surname, F.; Surname, F.' (semicolon-separated)",
+    )
+    year = models.CharField(max_length=10, blank=True)
+    venue = models.CharField(
+        max_length=300, blank=True,
+        help_text="Journal, conference, or publisher.",
+    )
+    volume = models.CharField(max_length=30, blank=True)
+    issue = models.CharField(max_length=30, blank=True)
+    pages = models.CharField(max_length=30, blank=True)
+    doi = models.CharField(max_length=120, blank=True)
+
+    # Used for full-text search (rubric 3.9)
+    extracted_text = models.TextField(blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def file_size_display(self):
+        if not self.file:
+            return 'URL'
+        try:
+            size_mb = self.file.size / (1024 * 1024)
+            return f"{size_mb:.1f} MB"
+        except Exception:
+            return ''
