@@ -281,3 +281,27 @@ class Resource(models.Model):
             return f"{size_mb:.1f} MB"
         except Exception:
             return ''
+
+
+class ResearchSummary(models.Model):
+    """A note / write-up the user types about their project.
+
+    Each summary belongs to one project, and can have many Citation rows
+    pointing back at Resource rows. That's the whole "write your lit
+    review and cite as you go" workflow.
+    """
+    project = models.ForeignKey(
+        ResearchProject, on_delete=models.CASCADE, related_name='summaries',
+    )
+    title = models.CharField(max_length=300)
+    content = models.TextField(blank=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name_plural = 'Research summaries'
+
+    def __str__(self):
+        return self.title
