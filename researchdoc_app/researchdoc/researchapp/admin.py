@@ -71,3 +71,86 @@ class CustomUserAdmin(BaseUserAdmin):
     def activate_users(self, request, queryset):
         updated = queryset.update(is_active=True)
         self.message_user(request, f"{updated} user(s) activated.", messages.SUCCESS)
+
+
+
+# Subscription admin paging, search, and archive-instead-of-delete.
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    """Admin page for SaaS subscriptions. No hard delete archive only."""
+    list_display = ('name', 'plan_type', 'owner', 'is_active', 'created_at')
+    list_filter = ('plan_type', 'is_active', 'created_at')
+    search_fields = ('name', 'owner__username', 'owner__email')
+    list_per_page = 20
+    readonly_fields = ('created_at', 'updated_at')
+    actions = ['archive_subscriptions', 'unarchive_subscriptions']
+
+    fieldsets = (
+        (None, {'fields': ('name', 'plan_type', 'owner', 'is_active')}),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def has_delete_permission(self, request, obj=None):
+        # We intentionally don't expose the delete button admins should
+        # archive (is_active=False) instead. That keeps the row around so
+        # billing history isn't lost.
+        return False
+
+    @admin.action(description='Archive selected subscriptions')
+    def archive_subscriptions(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(
+            request, f"{updated} subscription(s) archived.", messages.SUCCESS,
+        )
+
+    @admin.action(description='Reactivate selected subscriptions')
+    def unarchive_subscriptions(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(
+            request, f"{updated} subscription(s) reactivated.", messages.SUCCESS,
+        )
+
+
+@admin.register(UserDetail)
+class UserDetailAdmin(admin.ModelAdmin):
+    list_display = ('user', 'firstname', 'surname', 'mobile', 'created_at')
+    search_fields = ('user__username', 'user__email', 'firstname', 'surname')
+    list_per_page = 20
+
+
+@admin.register(ResearchProject)
+class ResearchProjectAdmin(admin.ModelAdmin):
+    list_display = ('title', 'owner', 'subscription', 'is_archived', 'created_at')
+    list_filter = ('is_archived', 'created_at')
+    search_fields = ('title', 'description', 'owner__username')
+    list_per_page = 25
+
+
+@admin.register(Resource)
+class ResourceAdmin(admin.ModelAdmin):
+    list_display = ('title', 'project', 'resource_type', 'uploaded_at')
+    list_filter = ('resource_type', 'uploaded_at')
+    search_fields = ('title', 'description')
+    list_per_page = 25
+
+
+@admin.register(ResearchSummary)
+class ResearchSummaryAdmin(admin.ModelAdmin):
+    list_display = ('title', 'project', 'author', 'updated_at')
+    search_fields = ('title', 'content')
+    list_per_page = 25
+
+
+admin.site.register(Citation)
+admin.site.register(ComparisonTable)
+admin.site.register(ComparisonColumn)
+admin.site.register(ComparisonRow)
+admin.site.register(ComparisonCell)
+
+admin.site.site_header = 'ResearchDoc Admin'
+admin.site.site_title = 'ResearchDoc'
+admin.site.index_title = 'Manage users, subscriptions, projects, and content'
