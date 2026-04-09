@@ -351,3 +351,65 @@ class Citation(models.Model):
         """Return a formatted citation string for the chosen style."""
         from .citations import format_citation
         return format_citation(self.resource, style or self.style)
+
+
+class ComparisonTable(models.Model):
+    """One comparison spreadsheet inside a project.
+
+    The actual content is split across three tables (Column, Row, Cell)
+    so the visual editor can add or remove rows and columns by inserting
+    or deleting individual records. Storing it as a JSON blob would be
+    simpler but you couldn't query individual cells.
+    """
+    project = models.ForeignKey(
+        ResearchProject, on_delete=models.CASCADE, related_name='comparisons',
+    )
+    title = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.title
+
+
+class ComparisonColumn(models.Model):
+    table = models.ForeignKey(
+        ComparisonTable, on_delete=models.CASCADE, related_name='columns',
+    )
+    name = models.CharField(max_length=100)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class ComparisonRow(models.Model):
+    table = models.ForeignKey(
+        ComparisonTable, on_delete=models.CASCADE, related_name='rows',
+    )
+    label = models.CharField(max_length=100)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.label
+
+
+class ComparisonCell(models.Model):
+    table = models.ForeignKey(
+        ComparisonTable, on_delete=models.CASCADE, related_name='cells',
+    )
+    row = models.ForeignKey(ComparisonRow, on_delete=models.CASCADE)
+    column = models.ForeignKey(ComparisonColumn, on_delete=models.CASCADE)
+    value = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        unique_together = ('row', 'column')
