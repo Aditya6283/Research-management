@@ -1,0 +1,120 @@
+/* ResearchDoc global stylesheet */
+:root {
+  /* Surfaces */
+  --rd-bg:           #f5f7fb;
+  --rd-card:         #ffffff;
+  --rd-card-alt:     #f1f3f9;
+  --rd-card-hover:   #f8faff;
+  /* Text */
+  --rd-text:         #0f172a;
+  --rd-text-muted:   #64748b;
+  --rd-text-subtle:  #94a3b8;
+  /* Borders & inputs */
+  --rd-border:       #e2e8f0;
+  --rd-border-strong:#cbd5e1;
+  --rd-input-bg:     #f1f3f9;
+  --rd-input-text:   #0f172a;
+  /* Brand a warmer, more classic blue. Less "neon AI", more "real product". */
+  --rd-primary:      #2f5fd4;
+  --rd-primary-hover:#274eb0;
+  --rd-primary-soft: #e8efff;
+  --rd-accent:       #0891b2;
+  --rd-success:      #15a974;
+  --rd-warning:      #d97706;
+  --rd-danger:       #dc2626;
+  /* Chrome */
+  --rd-shadow-sm:    0 1px 2px rgba(15, 23, 42, 0.05);
+  --rd-shadow:       0 4px 16px rgba(15, 23, 42, 0.06);
+  --rd-shadow-lg:    0 20px 40px -10px rgba(47, 95, 212, 0.15);
+  --rd-navbar-bg:    rgba(255, 255, 255, 0.85);
+  --rd-link:         #2f5fd4;
+  --rd-hero-overlay: rgba(255, 255, 255, 0.0);
+  /* Gradient kept for the AI-only buttons so they stand out (indigo→violet). */
+  --rd-grad-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --rd-grad-accent:  linear-gradient(135deg, #0891b2 0%, #2f5fd4 100%);
+}
+
+/* DARK theme */
+html[data-rd-theme="dark"] {
+  --rd-bg:           #0e1219;
+  --rd-card:         #161b25;
+  --rd-card-alt:     #1f252f;
+  --rd-card-hover:   #262d39;
+  --rd-text:         #e4e7ec;
+  --rd-text-muted:   #9aa3b2;
+  --rd-text-subtle:  #6c7689;
+  --rd-border:       #262d39;
+  --rd-border-strong:#374151;
+  --rd-input-bg:     #1f252f;
+  --rd-input-text:   #f1f3f7;
+  --rd-primary:      #6b8aff;
+  --rd-primary-hover:#85a0ff;
+  --rd-primary-soft: #1c2742;
+  --rd-accent:       #34c6e6;
+  --rd-success:      #4ade80;
+  --rd-warning:      #fbbf24;
+  --rd-danger:       #f87171;
+  --rd-shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.4);
+  --rd-shadow:       0 4px 20px rgba(0, 0, 0, 0.45);
+  --rd-shadow-lg:    0 20px 40px -10px rgba(107, 138, 255, 0.22);
+  --rd-navbar-bg:    rgba(14, 18, 25, 0.85);
+  --rd-link:         #95acff;
+  --rd-hero-overlay: rgba(0, 0, 0, 0.5);
+  --rd-grad-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --rd-grad-accent:  linear-gradient(135deg, #34c6e6 0%, #6b8aff 100%);
+}
+
+/* Smooth transitions on theme flip */
+html, body, .card, .card-custom, .card-box, .project-card,
+.sidebar-card, .feature-card, .navbar, .form-control,
+.form-select, .alert, .dropdown-menu, .nav-link, .btn,
+.list-group-item, table {
+  transition: background-color 0.2s ease, color 0.2s ease,
+              border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--rd-bg) !important;
+  color: var(--rd-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.landing-body {
+  background: linear-gradient(var(--rd-hero-overlay), var(--rd-hero-overlay)),
+              url('../images/bg.jpg') no-repeat center center / cover;
+}
+
+h1, h2, h3, h4, h5, h6 { color: var(--rd-text); font-weight: 700; letter-spacing: -0.02em; }
+p { color: var(--rd-text); }
+strong, b { color: var(--rd-text); }
+
+a { color: var(--rd-link); text-decoration: none; transition: color 0.15s; }
+a:hover { color: var(--rd-primary-hover); }
+
+hr { border-color: var(--rd-border); opacity: 1; }
+
+/* Navbar */
+.navbar {
+  background: var(--rd-navbar-bg) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--rd-border);
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.navbar a, .navbar .text-dark { color: var(--rd-text) !important; }
+.navbar a:hover { color: var(--rd-primary) !important; }
+.navbar .text-primary { color: var(--rd-primary) !important; }
+
+/* Dropdown */
+.dropdown-menu {
+  background: var(--rd-card);
+  border: 1px solid var(--rd-border);
