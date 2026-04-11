@@ -118,3 +118,203 @@ hr { border-color: var(--rd-border); opacity: 1; }
 .dropdown-menu {
   background: var(--rd-card);
   border: 1px solid var(--rd-border);
+  border-radius: 14px;
+  box-shadow: var(--rd-shadow);
+  padding: 6px;
+}
+.dropdown-item, .dropdown-item-text {
+  color: var(--rd-text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+.dropdown-item:hover, .dropdown-item:focus {
+  background: var(--rd-card-alt);
+  color: var(--rd-text);
+}
+.dropdown-divider { border-color: var(--rd-border); margin: 4px 0; }
+
+/* Cards */
+.card,
+.card-box, .card-custom,
+.project-card, .sidebar-card,
+.feature-card {
+  background: var(--rd-card);
+  color: var(--rd-text);
+  border: 1px solid var(--rd-border);
+  border-radius: 16px;
+  box-shadow: var(--rd-shadow-sm);
+}
+.card-box { padding: 24px; }
+.card-custom { padding: 20px; }
+.project-card { padding: 18px; transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
+.project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--rd-shadow);
+  border-color: var(--rd-primary);
+}
+.sidebar-card { padding: 20px; }
+
+/* Forms */
+.form-label { color: var(--rd-text); font-weight: 500; font-size: 0.9rem; margin-bottom: 6px; }
+.form-control, .form-select, textarea.form-control {
+  background: var(--rd-input-bg);
+  color: var(--rd-input-text);
+  border: 1px solid var(--rd-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+.form-control:focus, .form-select:focus {
+  background: var(--rd-card);
+  color: var(--rd-input-text);
+  border-color: var(--rd-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  outline: none;
+}
+.form-control::placeholder { color: var(--rd-text-subtle); }
+.input-group-text {
+  background: var(--rd-input-bg);
+  color: var(--rd-text-muted);
+  border: 1px solid var(--rd-border);
+  border-radius: 10px;
+}
+.form-check-input:checked { background-color: var(--rd-primary); border-color: var(--rd-primary); }
+
+/* Buttons */
+.btn {
+  font-weight: 500;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 0.92rem;
+  transition: transform 0.1s ease, box-shadow 0.15s ease,
+              background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: var(--rd-primary);
+  border-color: var(--rd-primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+.btn-primary:hover, .btn-primary:focus {
+  background: var(--rd-primary-hover);
+  border-color: var(--rd-primary-hover);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(47, 95, 212, 0.25);
+}
+
+.btn-light {
+  background: var(--rd-card);
+  color: var(--rd-text);
+  border: 1px solid var(--rd-border);
+}
+.btn-light:hover, .btn-light:focus {
+  background: var(--rd-card-alt);
+  color: var(--rd-text);
+  border-color: var(--rd-border-strong);
+}
+.btn-light.text-danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: var(--rd-danger);
+  color: var(--rd-danger) !important;
+}
+.btn-group .btn { border-radius: 8px; }
+.btn-group .btn + .btn { margin-left: 4px; }
+
+.btn-outline-primary {
+  color: var(--rd-primary);
+  border: 1px solid var(--rd-primary);
+  background: transparent;
+}
+.btn-outline-primary:hover {
+  background: var(--rd-primary);
+  color: #fff;
+}
+.btn-outline-danger {
+  color: var(--rd-danger);
+  border: 1px solid var(--rd-danger);
+  background: transparent;
+}
+.btn-outline-danger:hover {
+  background: var(--rd-danger);
+  color: #fff;
+}
+.btn-success { background: var(--rd-success); border-color: var(--rd-success); color: #fff; }
+
+/* Badges, alerts */
+.badge {
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+}
+.badge.bg-light { background: var(--rd-card-alt) !important; color: var(--rd-text) !important; }
+.badge.bg-primary { background: var(--rd-primary) !important; }
+.badge.bg-success { background: var(--rd-success) !important; }
+.badge.bg-warning { background: var(--rd-warning) !important; color: #fff !important; }
+.badge.bg-danger  { background: var(--rd-danger) !important; }
+
+.alert {
+  border: 1px solid var(--rd-border);
+  border-radius: 12px;
+  background: var(--rd-card);
+  color: var(--rd-text);
+  padding: 12px 16px;
+}
+.alert-success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--rd-success); }
+.alert-danger  { background: rgba(239, 68, 68, 0.1);  border-color: rgba(239, 68, 68, 0.3);  color: var(--rd-danger); }
+.alert-warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: var(--rd-warning); }
+.alert-info    { background: rgba(79, 70, 229, 0.1);  border-color: rgba(79, 70, 229, 0.3);  color: var(--rd-primary); }
+
+/* Text helpers */
+.text-muted, .text-secondary { color: var(--rd-text-muted) !important; }
+.text-dark { color: var(--rd-text) !important; }
+.text-primary { color: var(--rd-primary) !important; }
+.text-success { color: var(--rd-success) !important; }
+.text-danger { color: var(--rd-danger) !important; }
+.text-white-soft { color: rgba(255,255,255,0.85); }
+
+/* Tables*/
+.table {
+  color: var(--rd-text);
+  margin-bottom: 0;
+}
+.table > :not(caption) > * > * {
+  background-color: transparent;
+  color: var(--rd-text);
+  border-color: var(--rd-border);
+  padding: 12px 14px;
+}
+.table thead th {
+  color: var(--rd-text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid var(--rd-border);
+  font-weight: 600;
+}
+
+/* Nav tabs / pills*/
+.nav-tabs {
+  border-bottom: 1px solid var(--rd-border);
+}
+.nav-tabs .nav-link {
+  color: var(--rd-text-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  font-weight: 500;
+  background: transparent;
+}
+.nav-tabs .nav-link:hover { color: var(--rd-text); }
+.nav-tabs .nav-link.active {
+  background: transparent;
+  color: var(--rd-primary);
+  border-bottom-color: var(--rd-primary);
+}
+
+.nav-pills .nav-link {
+  color: var(--rd-text);
+  background: transparent;
