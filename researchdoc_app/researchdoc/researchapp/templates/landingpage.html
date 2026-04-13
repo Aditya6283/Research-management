@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block body_class %}landing-body{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <h1>The Intelligent Space for Your <span>Research</span></h1>
+        <p class="text-muted mt-3">
+          Turn complex papers into simple summaries and generate citations effortlessly,
+          so you can spend more time understanding your research instead of formatting it.
+        </p>
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
+        {% else %}
+          <a href="{% url 'account_login' %}" class="btn btn-primary">Get Started</a>
+          <a href="#features" class="btn btn-light border">Watch Demo</a>
+        {% endif %}
+      </div>
+      <div class="col-md-6 text-center">
+        <img src="{% static 'researchapp/images/front_pg.png' %}"
+             class="img-fluid rounded hero-img"
+             alt="Preview of ResearchDoc dashboard">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features" class="py-5 bg-light">
+  <div class="container text-center">
+    <h2>Precision Tools for Deep Work</h2>
+    <p class="text-muted">Everything you need in one workspace</p>
+
+    <div class="row g-4 mt-4">
+
+      <div class="col-md-4">
+        <a href="{% if user.is_authenticated %}{% url 'project_create' %}{% else %}{% url 'account_login' %}{% endif %}" class="text-decoration-none text-dark">
+          <div class="feature-card p-4 h-100">
+            <div class="icon-box primary mb-3">
+              <span class="material-symbols-outlined filled">folder_managed</span>
+            </div>
+            <h4 class="text-muted">Create Research Projects</h4>
+            <p>Organize your intellectual output into clean, modular projects.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-md-4">
+        <a href="{% if user.is_authenticated %}{% url 'resource_upload' %}{% else %}{% url 'account_login' %}{% endif %}" class="text-decoration-none text-dark">
+          <div class="feature-card p-4 h-100">
+            <div class="icon-box purple mb-3">
+              <span class="material-symbols-outlined">upload_file</span>
+            </div>
+            <h5 class="fw-bold">Upload Papers &amp; Links</h5>
+            <p class="text-muted">Drag and drop PDFs or paste URLs.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-md-4">
+        <a href="{% if user.is_authenticated %}{% url 'summary_blank' %}{% else %}{% url 'account_login' %}{% endif %}" class="text-decoration-none text-dark">
+          <div class="feature-card p-4 h-100">
+            <div class="icon-box gray mb-3">
+              <span class="material-symbols-outlined">history_edu</span>
+            </div>
+            <h5 class="fw-bold">Summaries &amp; Citations</h5>
+            <p class="text-muted">Generate AI-driven summaries and citations.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-md-4">
+        <a href="{% if user.is_authenticated %}{% url 'summary_blank' %}{% else %}{% url 'account_login' %}{% endif %}" class="text-decoration-none text-dark">
+          <div class="feature-card p-4 h-100">
+            <div class="icon-box primary mb-3">
+              <span class="material-symbols-outlined">compare_arrows</span>
+            </div>
+            <h5 class="fw-bold">Product/Service Comparison</h5>
+            <p class="text-muted">Compare multiple sources easily.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-md-5">
+        <a href="{% if user.is_authenticated %}{% url 'insight' %}{% else %}{% url 'account_login' %}{% endif %}" class="text-decoration-none text-dark">
+          <div class="feature-card p-4 h-100 full-search-card">
+            <div class="icon-box search mb-3 d-flex align-items-center justify-content-center">
+              <span class="material-symbols-outlined">search</span>
+            </div>
+            <h5 class="fw-bold">Full-text Search</h5>
+            <p>Find any needle in any haystack. Indexed deep-content search across all your projects.</p>
+          </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="container my-5">
+  <div class="cta-box text-center">
+    <h2 class="fw-bold mb-3">Ready to evolve your workflow?</h2>
+    <p class="text-white-soft mb-4">
+      Join thousands of researchers who are turning information into real-world impact.
+    </p>
+    <a href="{% url 'account_login' %}" class="btn btn-light cta-btn">Start Free Trial</a>
+  </div>
+</section>
+
+{% endblock %}
