@@ -130,3 +130,26 @@ def index(request):
     })
 
 
+# Dashboard
+
+@login_required
+def dashboard(request):
+    """The page you land on after logging in. Shows your projects + stats."""
+    projects = ResearchProject.objects.filter(
+        owner=request.user, is_archived=False,
+    )
+    total_citations = Citation.objects.filter(
+        summary__project__owner=request.user,
+    ).count()
+    total_resources = Resource.objects.filter(
+        project__owner=request.user,
+    ).count()
+    sub = get_active_subscription(request.user)
+    return render(request, 'dashboard.html', {
+        'projects': projects,
+        'total_citations': total_citations,
+        'total_resources': total_resources,
+        'subscription': sub,
+        'plan': sub.plan,
+        'project_pct': min(100, int(100 * projects.count() / max(1, sub.max_projects))),
+    })

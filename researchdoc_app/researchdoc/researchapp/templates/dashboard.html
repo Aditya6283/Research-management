@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard ResearchDoc{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start flex-wrap mb-4 gap-3">
+    <div>
+      <h1 class="fw-bold mb-1" style="font-size: 2.1rem;">Welcome back, {{ user.first_name|default:user.username }}.</h1>
+      <p class="text-muted mb-0">Pick up where you left off, or kick off a new investigation.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{% url 'project_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> New Project
+      </a>
+      <a href="{% url 'resource_upload' %}" class="btn btn-light">
+        <i class="bi bi-upload"></i> submit Paper
+      </a>
+      <a href="{% url 'insight' %}" class="btn btn-light">
+        <i class="bi bi-search"></i> Search
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat tiles -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+      <div class="stat-tile featured">
+        <div class="label">{{ plan.name }} plan</div>
+        <div class="value">{{ projects.count }}<small style="font-size:1rem; opacity:0.8;"> / {% if subscription.max_projects > 999 %}∞{% else %}{{ subscription.max_projects }}{% endif %}</small></div>
+        <div class="sublabel">Active projects</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-tile">
+        <div class="label">Resources</div>
+        <div class="value">{{ total_resources }}</div>
+        <div class="sublabel">Papers &amp; links</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-tile">
+        <div class="label">Citations</div>
+        <div class="value">{{ total_citations }}</div>
+        <div class="sublabel">Across all summaries</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="stat-tile">
+        <div class="label">Plan</div>
+        <div class="value" style="font-size: 1.4rem; padding-top: 4px;">
+          {{ plan.price_label }}<small> / mo</small>
+        </div>
+        <div class="sublabel">
+          <a href="{% url 'pricing' %}" class="text-decoration-none">
+            {% if subscription.plan_type == 'pro' %}Manage plan{% else %}Upgrade →{% endif %}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upgrade prompt for Free users near the cap -->
+  {% if subscription.plan_type == 'free' and projects.count >= 1 %}
+    <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+      <div>
+        <strong><i class="bi bi-stars"></i> Unlock the AI Research Assistant</strong>
+        <span class="ms-2">Upgrade to Plus or Pro to summarise papers, generate citation suggestions, and synthesise entire projects automatically.</span>
+      </div>
+      <a href="{% url 'pricing' %}" class="btn btn-ai btn-sm">See plans</a>
+    </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <!-- Projects -->
+    <div class="col-lg-8">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 fw-bold mb-0">Your projects</h2>
+        <a href="{% url 'project_list' %}" class="text-muted text-decoration-none small">View all →</a>
+      </div>
+
+      {% for project in projects %}
+        <a href="{% url 'project_detail' project.pk %}" class="text-decoration-none text-dark">
+          <div class="project-card mb-3 d-flex gap-3 align-items-center">
+            <div class="icon-box primary flex-shrink-0">
+              <i class="bi bi-folder2-open"></i>
+            </div>
+            <div class="flex-grow-1">
+              <h6 class="fw-bold mb-1">{{ project.title }}</h6>
+              <p class="text-muted small mb-1">{{ project.description|truncatewords:18|default:"No description yet" }}</p>
+              <small class="text-muted">
+                <i class="bi bi-file-earmark-text"></i> {{ project.resources.count }} resources ·
+                <i class="bi bi-journal-text"></i> {{ project.summaries.count }} summaries ·
+                <i class="bi bi-clock-history"></i> updated {{ project.updated_at|date:"j M" }}
+              </small>
+            </div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+        </a>
+      {% empty %}
+        <div class="card-box text-center py-5">
+          <i class="bi bi-folder-plus text-muted" style="font-size: 3rem;"></i>
+          <h6 class="fw-bold mt-3 mb-2">No projects yet</h6>
+          <p class="text-muted mb-3">Start a research project to organise your papers, summaries, and citations.</p>
+          <a href="{% url 'project_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Create your first project
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <!-- Plan widget -->
+      <div class="sidebar-card mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Current plan</h6>
+          <span class="badge {% if subscription.plan_type == 'pro' %}bg-primary{% elif subscription.plan_type == 'plus' %}bg-success{% else %}bg-light{% endif %}">
+            {{ plan.name }}
+          </span>
+        </div>
+        <p class="text-muted small mb-2">
+          {% if subscription.plan_type == 'free' %}
+            You've used <strong>{{ projects.count }}</strong> of <strong>{{ subscription.max_projects }}</strong> projects.
+          {% elif subscription.plan_type == 'pro' %}
+            Unlimited projects &amp; AI features.
+          {% else %}
+            {{ projects.count }} / {{ subscription.max_projects }} projects.
+          {% endif %}
+        </p>
+        {% if subscription.plan_type != 'pro' %}
+          <div class="progress mb-3" style="height: 6px; border-radius: 3px;">
+            <div class="progress-bar bg-primary" style="width: {{ project_pct }}%;"></div>
+          </div>
+          <a href="{% url 'pricing' %}" class="btn btn-ai w-100 btn-sm">
+            <i class="bi bi-arrow-up-circle"></i> Upgrade
+          </a>
+        {% else %}
+          <a href="{% url 'pricing' %}" class="btn btn-light w-100 btn-sm">Manage plan</a>
+        {% endif %}
+      </div>
+
+      <!-- AI Assistant -->
+      <div class="sidebar-card mb-3" style="background: var(--rd-grad-primary); border: none; color: #fff;">
+        <h6 class="fw-bold mb-2 text-white">
+          <i class="bi bi-stars"></i> AI Research Assistant
+        </h6>
+        <p class="text-white-soft small mb-3" style="color: rgba(255,255,255,0.85);">
+          {% if subscription.plan_type == 'free' %}
+            Available on Plus and Pro. Summarise papers, suggest citations, and synthesise entire projects.
+          {% else %}
+            Open a project and click "Summarise Entire Project" no need to save first.
+          {% endif %}
+        </p>
+        {% if subscription.plan_type == 'free' %}
+          <a href="{% url 'pricing' %}" class="btn btn-light btn-sm w-100">Unlock AI</a>
+        {% elif projects %}
+          <a href="{% url 'summary_view' projects.0.pk %}" class="btn btn-light btn-sm w-100">Open Assistant</a>
+        {% else %}
+          <a href="{% url 'project_create' %}" class="btn btn-light btn-sm w-100">Create a project</a>
+        {% endif %}
+      </div>
+
+      <!-- Recent activity -->
+      <div class="sidebar-card">
+        <h6 class="fw-bold mb-3">Recent activity</h6>
+        {% for project in projects|slice:":4" %}
+          <div class="d-flex gap-2 mb-2 align-items-start">
+            <i class="bi bi-dot text-primary" style="font-size: 1.5rem; line-height: 1;"></i>
+            <div class="small">
+              <a href="{% url 'project_detail' project.pk %}" class="text-decoration-none text-dark fw-semibold">{{ project.title|truncatewords:5 }}</a>
+              <div class="text-muted">updated {{ project.updated_at|timesince }} ago</div>
+            </div>
+          </div>
+        {% empty %}
+          <p class="small text-muted mb-0">No activity yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
