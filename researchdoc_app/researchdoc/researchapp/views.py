@@ -153,3 +153,126 @@ def dashboard(request):
         'plan': sub.plan,
         'project_pct': min(100, int(100 * projects.count() / max(1, sub.max_projects))),
     })
+
+
+# Research project CRUD
+# Standard four-view pattern: list, create, edit, delete. Using Django's
+# class-based views here because they handle the boring bits (pagination,
+# form rendering, redirect-on-success) by themselves.
+
+class ProjectListView(LoginRequiredMixin, ListView):
+    """List the user's projects, paginated, with a search box."""
+    model = ResearchProject
+    template_name = 'project_list.html'
+    context_object_name = 'projects'
+    paginate_by = 5
+
+    def get_queryset(self):
+        # Only show projects this user owns. This is the authorisation check.
+        queryset = ResearchProject.objects.all()
+
+        # ?search=foo filters across title and description.
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(title__icontains=search_query)
+                | Q(description__icontains=search_query)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('search', '')
+        return context
+
+
+class ProjectCreateView(LoginRequiredMixin, CreateView):
+    """Make a new research project. Also checks the user's plan cap."""
+    model = ResearchProject
+    form_class = ResearchProjectForm
+    template_name = 'project_form.html'
+    success_url = reverse_lazy('project_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            sub = get_active_subscription(request.user)
+            current = ResearchProject.objects.filter(
+                owner=request.user, is_archived=False,
+            ).count()
+            if current >= sub.max_projects:
+                messages.warning(
+                    request,
+                    f"You've reached the {sub.get_plan_type_display()} plan limit of "
+                    f"{sub.max_projects} project{'s' if sub.max_projects != 1 else ''}. "
+                    f"Upgrade to add more.",
+                )
+                return redirect('pricing')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Set the owner to the logged-in user before saving
+        form.instance.owner = self.request.user
+        sub = get_active_subscription(self.request.user)
+        form.instance.subscription = sub
+        messages.success(self.request, f"Project '{form.instance.title}' created.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['mode'] = 'create'
+        return context
+
+
+class ProjectUpdateView(LoginRequiredMixin, UpdateView):
+    """Edit an existing project."""
+    model = ResearchProject
+    form_class = ResearchProjectForm
+    template_name = 'project_form.html'
+
+    def get_queryset(self):
+        return ResearchProject.objects.filter(owner=self.request.user)
+
+    def get_success_url(self):
+        return reverse_lazy('project_detail', args=[self.object.pk])
+
+    def form_valid(self, form):
+        messages.success(self.request, "Project updated.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['mode'] = 'edit'
+        return context
+
+
+class ProjectDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete a project. Cascades take care of everything inside it.
+
+    Heads up: Django 4+ moved the actual deletion into form_valid(), so
+    overriding delete() does nothing on modern Django (took me a while
+    to spot that the success message wasn't firing).
+    """
+    model = ResearchProject
+    template_name = 'project_confirm_delete.html'
+    success_url = reverse_lazy('dashboard')
+
+    def get_queryset(self):
+        return ResearchProject.objects.filter(owner=self.request.user)
+
+    def form_valid(self, form):
+        title = self.get_object().title
+        response = super().form_valid(form)
+        messages.success(self.request, f"Project '{title}' deleted.")
+        return response
+
+
+@login_required
+def project_detail(request, pk):
+    """Show all resources, summaries, and comparisons in a project."""
+    project = get_object_or_404(ResearchProject, pk=pk, owner=request.user)
+    return render(request, 'project_detail.html', {
+        'project': project,
+        'resources': project.resources.all(),
+        'summaries': project.summaries.all(),
+        'comparisons': project.comparisons.all(),
+    })
