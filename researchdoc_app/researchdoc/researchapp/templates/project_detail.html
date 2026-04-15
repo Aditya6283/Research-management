@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} ResearchDoc{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tab-content { padding-top: 18px; }
+  .resource-row, .summary-row, .comparison-row { transition: background 0.15s; }
+  .resource-row:hover, .summary-row:hover, .comparison-row:hover { background: var(--rd-card-alt); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ project.title }}</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between flex-wrap mb-4">
+    <div>
+      <h1 class="h2 fw-bold">{{ project.title }}</h1>
+      <p class="text-muted">{{ project.description }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <a href="{% url 'research_chat_ui' project.pk %}" class="btn btn-primary">
+        <i class="bi bi-robot"></i> Research Coach
+      </a>
+      <div class="btn-group" role="group" aria-label="Project actions">
+        <a href="{% url 'project_edit' project.pk %}"
+           class="btn btn-light" title="Edit project">
+          <i class="bi bi-pencil"></i> Edit
+        </a>
+        <form method="post" action="{% url 'project_delete' project.pk %}"
+              onsubmit="return confirm('Delete this project? This cannot be undone.');"
+              class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-light text-danger" title="Delete project">
+            <i class="bi bi-trash"></i> Delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#resources-tab" type="button" role="tab">Resources ({{ resources|length }})</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#summaries-tab" type="button" role="tab">Summaries ({{ summaries|length }})</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#comparisons-tab" type="button" role="tab">Comparisons ({{ comparisons|length }})</button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="resources-tab" role="tabpanel">
+      <div class="card-box mb-3">
+        <div class="d-flex justify-content-between mb-3">
+          <h5 class="mb-0">Resources</h5>
+          <a href="{% url 'resource_upload_for_project' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i> Add</a>
+        </div>
+        {% for r in resources %}
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+              <strong>{{ r.title }}</strong>
+              <div class="text-muted small">{{ r.get_resource_type_display }} · {{ r.file_size_display }}</div>
+            </div>
+            <div>
+              {% if r.file %}<a href="{{ r.file.url }}" target="_blank" class="text-dark me-2"><i class="bi bi-eye"></i></a>{% endif %}
+              {% if r.url %}<a href="{{ r.url }}" target="_blank" class="text-dark me-2"><i class="bi bi-link-45deg"></i></a>{% endif %}
+              <form method="post" action="{% url 'resource_delete' r.pk %}" class="d-inline" onsubmit="return confirm('Delete this resource?');">
+                {% csrf_token %}
+                <button class="btn btn-link text-dark p-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </div>
+          </div>
+        {% empty %}
+          <p class="text-muted">No resources yet. <a href="{% url 'resource_upload_for_project' project.pk %}">Upload one</a>.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="summaries-tab" role="tabpanel">
+      <div class="card-box mb-3">
+        <div class="d-flex justify-content-between mb-3">
+          <h5 class="mb-0">Research Summaries</h5>
+          <a href="{% url 'summary_view' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i> New Summary</a>
+        </div>
+        {% for s in summaries %}
+          <div class="py-2 border-bottom">
+            <a href="{% url 'summary_view' project.pk %}?summary={{ s.pk }}" class="text-decoration-none text-dark">
+              <strong>{{ s.title }}</strong>
+              <div class="text-muted small">{{ s.citations.count }} citations · updated {{ s.updated_at|date:"j M Y" }}</div>
+            </a>
+          </div>
+        {% empty %}
+          <p class="text-muted">No summaries yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="comparisons-tab" role="tabpanel">
+      <div class="card-box mb-3">
+        <div class="d-flex justify-content-between mb-3">
+          <h5 class="mb-0">Comparison Tables</h5>
+          <a href="{% url 'comparison_create' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i> New Comparison</a>
+        </div>
+        {% for c in comparisons %}
+          <div class="py-2 border-bottom d-flex justify-content-between">
+            <a href="{% url 'comparison_edit' c.pk %}" class="text-decoration-none text-dark">
+              <strong>{{ c.title }}</strong>
+              <div class="text-muted small">{{ c.rows.count }} rows · {{ c.columns.count }} columns</div>
+            </a>
+            <form method="post" action="{% url 'comparison_delete' c.pk %}" onsubmit="return confirm('Delete this comparison?');">
+              {% csrf_token %}
+              <button class="btn btn-link text-dark"><i class="bi bi-trash"></i></button>
+            </form>
+          </div>
+        {% empty %}
+          <p class="text-muted">No comparison tables yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
