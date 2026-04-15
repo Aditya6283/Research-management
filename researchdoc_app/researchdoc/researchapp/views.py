@@ -169,7 +169,7 @@ class ProjectListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         # Only show projects this user owns. This is the authorisation check.
-        queryset = ResearchProject.objects.all()
+        queryset = ResearchProject.objects.filter(owner=self.request.user)
 
         # ?search=foo filters across title and description.
         search_query = self.request.GET.get('search', '')
