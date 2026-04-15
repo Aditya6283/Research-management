@@ -276,3 +276,87 @@ def project_detail(request, pk):
         'summaries': project.summaries.all(),
         'comparisons': project.comparisons.all(),
     })
+
+
+# Resources papers and links uploaded into a project
+
+@login_required
+def resource_upload(request, project_pk=None):
+    """Upload a PDF or add a link to a project. Honours the per-plan cap."""
+    project = None
+    if project_pk:
+        project = get_object_or_404(
+            ResearchProject, pk=project_pk, owner=request.user,
+        )
+
+    user_projects = ResearchProject.objects.filter(
+        owner=request.user, is_archived=False,
+    )
+    sub = get_active_subscription(request.user)
+
+    if request.method == 'POST':
+        form = ResourceForm(request.POST, request.FILES)
+        target_project_pk = request.POST.get('project')
+        if not project and target_project_pk:
+            project = get_object_or_404(
+                ResearchProject, pk=target_project_pk, owner=request.user,
+            )
+        # Enforce per-project upload cap
+        if project and project.resources.count() >= sub.max_papers_per_project:
+            messages.warning(
+                request,
+                f"Your {sub.get_plan_type_display()} plan allows "
+                f"{sub.max_papers_per_project} papers per project. "
+                f"Upgrade for more.",
+            )
+            return redirect('pricing')
+        if form.is_valid() and project:
+            resource = form.save(commit=False)
+            resource.project = project
+            resource.save()  # save first so we have a file on disk
+
+            # Extract text from PDF for full-text search and AI summarization
+            extracted = f"{resource.title} {resource.description}"
+            if resource.file:
+                try:
+                    from pypdf import PdfReader
+                    reader = PdfReader(resource.file.path)
+                    pdf_text = []
+                    for page in reader.pages[:30]:  # limit to first 30 pages
+                        try:
+                            pdf_text.append(page.extract_text() or '')
+                        except Exception:
+                            continue
+                    extracted = (extracted + '\n' + '\n'.join(pdf_text)).strip()
+                except Exception as e:
+                    messages.warning(
+                        request,
+                        f"Uploaded, but couldn't extract PDF text: {e}",
+                    )
+
+            resource.extracted_text = extracted[:50000]  # cap at 50k chars
+            resource.save(update_fields=['extracted_text'])
+
+            messages.success(request, f"'{resource.title}' uploaded.")
+            return redirect('project_detail', pk=project.pk)
+    else:
+        form = ResourceForm()
+
+    recent = Resource.objects.filter(project__owner=request.user)[:10]
+    total = Resource.objects.filter(project__owner=request.user).count()
+    return render(request, 'upload_paper.html', {
+        'form': form, 'project': project,
+        'user_projects': user_projects,
+        'recent_uploads': recent, 'total_uploads': total,
+        'subscription': sub,
+    })
+
+
+@login_required
+@require_POST
+def resource_delete(request, pk):
+    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user)
+    project_pk = resource.project.pk
+    resource.delete()
+    messages.success(request, "Resource deleted.")
+    return redirect('project_detail', pk=project_pk)
