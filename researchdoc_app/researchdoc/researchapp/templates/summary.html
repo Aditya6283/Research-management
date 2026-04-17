@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Research Summary ResearchDoc{% endblock %}
+
+{% block extra_head %}
+<style>
+  textarea.form-control { min-height: 280px; padding: 15px; }
+  .citation-box { background: var(--rd-card-alt); border-radius: 12px; padding: 12px; font-size: 14px; }
+  .ai-assistant-panel { border: 1px solid var(--rd-primary-soft); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="fw-bold h2">Research Summary</h1>
+  <p class="text-secondary">Create research summaries with citations and compare tools effectively.</p>
+
+  {% if not project %}
+    <div class="card-box mt-4">
+      <p>Select a project to start writing a summary:</p>
+      <div class="row g-2">
+        {% for p in user.projects.all %}
+          <div class="col-md-6">
+            <a href="{% url 'summary_view' p.pk %}" class="btn btn-light w-100 text-start">{{ p.title }}</a>
+          </div>
+        {% empty %}
+          <p class="text-muted">No projects yet. <a href="{% url 'project_create' %}">Create one</a>.</p>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <p class="small text-muted">Project: <strong>{{ project.title }}</strong> · <a href="{% url 'project_detail' project.pk %}">back to project</a></p>
+
+    <div class="row mt-3">
+      <div class="col-md-8">
+        <form method="post" class="card-box">
+          {% csrf_token %}
+          <h5 class="mb-3">Summary Editor</h5>
+
+          <label class="mb-1" for="{{ form.title.id_for_label }}">Title</label>
+          {{ form.title }}
+
+          <label class="mb-1 mt-3" for="{{ form.content.id_for_label }}">Content</label>
+          {{ form.content }}
+
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary flex-grow-1">Save Summary</button>
+            {% if summary %}
+              <button type="button" id="ai-refine-btn" class="btn btn-outline-primary" data-summary-pk="{{ summary.pk }}">
+                <i class="bi bi-magic"></i> AI Refine
+              </button>
+            {% endif %}
+          </div>
+        </form>
+
+        <!-- Existing summaries for this project -->
+        {% if project.summaries.all %}
+          <div class="card-box mt-3">
+            <h6 class="mb-3">All summaries in this project</h6>
+            {% for s in project.summaries.all %}
+              <a href="?summary={{ s.pk }}" class="d-block py-2 border-bottom text-decoration-none text-dark">
+                <strong>{{ s.title }}</strong>
+                <span class="text-muted small">{{ s.citations.count }} citations</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Comparison tables -->
+        <div class="card-box mt-3">
+          <div class="d-flex justify-content-between mb-3">
+            <h5 class="mb-0">Comparison Tables</h5>
+            <a href="{% url 'comparison_create' project.pk %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus"></i> New
+            </a>
+          </div>
+          {% for c in comparisons %}
+            <a href="{% url 'comparison_edit' c.pk %}" class="d-block py-2 border-bottom text-decoration-none text-dark">
+              <strong>{{ c.title }}</strong>
+              <span class="text-muted small">{{ c.rows.count }} rows × {{ c.columns.count }} columns</span>
+            </a>
+          {% empty %}
+            <p class="text-muted small mb-0">No comparison tables yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <!-- AI Research Assistant always available, even before a summary is saved -->
+        <div class="card-box mb-3 ai-assistant-panel">
+          <h6 class="mb-2"><i class="bi bi-diagram-3"></i> AI Research Assistant</h6>
+          <p class="text-muted small mb-2">Synthesise <strong>everything</strong> in this project resources, summaries, and comparison tables into one overview. No need to save first.</p>
+          <button type="button" id="ai-project-summary-btn"
+                  class="btn btn-primary w-100"
+                  data-project-pk="{{ project.pk }}">
+            <i class="bi bi-diagram-3"></i> Summarise Entire Project
+          </button>
+          <div id="ai-project-status" class="mt-2 small text-muted"></div>
+        </div>
+
+        <div class="card-box mb-3">
+          <h6 class="mb-2"><i class="bi bi-magic"></i> Summarise a Paper</h6>
+          <p class="text-muted small mb-2">Pick an uploaded paper and let AI generate a structured summary that pastes into the editor.</p>
+          <select id="paper-select" class="form-select mb-2">
+            <option value="">Select a paper</option>
+            {% for r in available_resources %}
+              {% if r.resource_type == 'paper' %}
+                <option value="{{ r.pk }}">{{ r.title }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button type="button" id="ai-summarize-btn" class="btn btn-outline-primary w-100"
+                  {% if not available_resources %}disabled{% endif %}>
+            <i class="bi bi-stars"></i> Generate AI Summary
+          </button>
+          <div id="ai-summary-status" class="mt-2 small text-muted"></div>
+        </div>
+
+        {% if summary %}
+          <div class="card-box mb-3">
+            <h5 class="mb-3">Citations</h5>
+            {% for c in citations %}
+              <div class="citation-box mb-2">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="flex-grow-1 me-2">
+                    <span class="badge bg-light text-dark mb-1">{{ c.get_style_display }}</span>
+                    <div class="small">{{ c.citation_text|default:c.resource.title }}</div>
+                  </div>
+                  <form method="post" action="{% url 'citation_delete' c.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-link text-dark p-0" aria-label="Remove citation"><i class="bi bi-x"></i></button>
+                  </form>
+                </div>
+                <form class="d-flex gap-1 mt-2 citation-restyle-form" data-citation-pk="{{ c.pk }}">
+                  {% csrf_token %}
+                  <select name="style" class="form-select form-select-sm" aria-label="Citation style">
+                    {% for code, label in c.STYLE_CHOICES %}
+                      <option value="{{ code }}" {% if code == c.style %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-sm btn-light">Reformat</button>
+                </form>
+              </div>
+            {% empty %}
+              <p class="text-muted small">No citations yet.</p>
+            {% endfor %}
+
+            <form method="post" action="{% url 'citation_add' summary.pk %}" class="mt-3">
+              {% csrf_token %}
+              <label class="small mb-1" for="resource_id">Add citation</label>
+              <select name="resource_id" id="resource_id" class="form-select mb-2" required>
+                {% for r in available_resources %}
+                  <option value="{{ r.id }}">{{ r.title }}</option>
+                {% endfor %}
+              </select>
+              <label class="small mb-1" for="citation-style">Citation style</label>
+              <select name="style" id="citation-style" class="form-select mb-2">
+                <option value="apa">APA (7th ed.)</option>
+                <option value="ieee">IEEE</option>
+                <option value="mla">MLA (9th ed.)</option>
+                <option value="chicago">Chicago (Author-Date)</option>
+                <option value="harvard">Harvard</option>
+              </select>
+              <input type="text" name="citation_text" class="form-control mb-2" placeholder="Leave blank to auto-format from resource metadata">
+              <button type="submit" class="btn btn-light w-100">+ Add Citation</button>
+            </form>
+          </div>
+
+          <div class="card-box">
+            <h6>AI Citation Suggestion</h6>
+            <p class="text-muted small">Get AI-recommended citations from your uploaded resources.</p>
+            <button type="button" id="ai-suggest-btn" class="btn btn-outline-primary w-100" data-summary-pk="{{ summary.pk }}">
+              <i class="bi bi-lightbulb"></i> Suggest Citations
+            </button>
+            <div id="ai-suggestions" class="mt-2"></div>
+          </div>
+        {% else %}
+          <div class="card-box">
+            <p class="text-muted small mb-0"><i class="bi bi-info-circle"></i> Save the summary to unlock per-summary citations and the AI Refine tool. The Project AI Assistant above works without saving.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // AI Refine
+  const refineBtn = document.getElementById('ai-refine-btn');
+  if (refineBtn) {
+    refineBtn.addEventListener('click', async () => {
+      refineBtn.disabled = true;
+      refineBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Refining...';
+      const fd = new FormData();
+      fd.append('summary_pk', refineBtn.dataset.summaryPk);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const r = await fetch('{% url "ai_refine" %}', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('{{ form.content.id_for_label }}').value = data.content;
+          alert('Summary refined. Click Save Summary to keep changes.');
+        } else {
+          alert('AI refine failed: ' + (data.error || 'unknown error'));
+        }
+      } catch (e) {
+        alert('Network error: ' + e.message);
+      }
+      refineBtn.disabled = false;
+      refineBtn.innerHTML = '<i class="bi bi-magic"></i> AI Refine';
+    });
+  }
+
+  // AI Suggest
+  const suggestBtn = document.getElementById('ai-suggest-btn');
+  if (suggestBtn) {
+    suggestBtn.addEventListener('click', async () => {
+      suggestBtn.disabled = true;
+      const originalText = suggestBtn.innerHTML;
+      suggestBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Thinking...';
+      const fd = new FormData();
+      fd.append('summary_pk', suggestBtn.dataset.summaryPk);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const r = await fetch('{% url "ai_suggest" %}', { method: 'POST', body: fd });
+        const data = await r.json();
+        const target = document.getElementById('ai-suggestions');
+        if (data.ok && data.suggestions && data.suggestions.length) {
+          target.innerHTML = '<div class="small mt-2"><strong>Suggested:</strong><ul class="mb-0">'
+            + data.suggestions.map(s => `<li>${s.title}</li>`).join('')
+            + '</ul></div>';
+        } else {
+          target.innerHTML = '<p class="text-muted small mt-2">No suggestions available.</p>';
+        }
+      } catch (e) {
+        document.getElementById('ai-suggestions').innerHTML =
+          '<p class="text-danger small mt-2">Error: ' + e.message + '</p>';
+      }
+      suggestBtn.disabled = false;
+      suggestBtn.innerHTML = originalText;
+    });
+  }
+
+  // AI Summarize paper
+  const summarizeBtn = document.getElementById('ai-summarize-btn');
+  if (summarizeBtn) {
+    summarizeBtn.addEventListener('click', async () => {
+      const select = document.getElementById('paper-select');
+      const resourceId = select.value;
+      const status = document.getElementById('ai-summary-status');
+      if (!resourceId) {
+        status.textContent = 'Please select a paper first.';
+        status.className = 'mt-2 small text-danger';
+        return;
+      }
+      summarizeBtn.disabled = true;
+      summarizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Summarising...';
+      status.textContent = 'Reading paper and generating summary...';
+      status.className = 'mt-2 small text-muted';
+      const fd = new FormData();
+      fd.append('resource_id', resourceId);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const r = await fetch('{% url "ai_summarize" %}', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) {
+          const editor = document.getElementById('{{ form.content.id_for_label }}');
+          const existing = editor.value;
+          editor.value = (existing ? existing + '\n\n---\n\n' : '') + data.summary;
+          status.textContent = data.fallback
+            ? 'Generated (fallback mode no API key configured).'
+            : 'Summary generated. Click Save Summary to keep changes.';
+          status.className = 'mt-2 small text-success';
+        } else {
+          status.textContent = 'Failed: ' + (data.error || 'unknown error');
+          status.className = 'mt-2 small text-danger';
+        }
+      } catch (e) {
+        status.textContent = 'Network error: ' + e.message;
+        status.className = 'mt-2 small text-danger';
+      }
+      summarizeBtn.disabled = false;
+      summarizeBtn.innerHTML = '<i class="bi bi-stars"></i> Generate AI Summary';
+    });
+  }
+
+  // Citation restyle (reformat an existing citation to a different style)
+  document.querySelectorAll('.citation-restyle-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pk = form.dataset.citationPk;
+      const style = form.querySelector('select[name="style"]').value;
+      const fd = new FormData();
+      fd.append('style', style);
+      fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const r = await fetch(`/researchdoc/citations/${pk}/restyle/`, { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) {
+          const box = form.closest('.citation-box');
+          box.querySelector('.small').textContent = data.citation_text;
+          const badge = box.querySelector('.badge');
+          const label = form.querySelector('select option:checked').textContent;
+          badge.textContent = label;
+        } else {
+          alert('Restyle failed.');
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    });
+  });
+
+  // AI Summarize WHOLE project
+  const projSummarizeBtn = document.getElementById('ai-project-summary-btn');
+  if (projSummarizeBtn) {
+    projSummarizeBtn.addEventListener('click', async () => {
+      const status = document.getElementById('ai-project-status');
+      projSummarizeBtn.disabled = true;
+      projSummarizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synthesising project...';
+      status.textContent = 'Reading all resources, summaries, and comparisons in this project...';
+      status.className = 'mt-2 small text-muted';
+      const fd = new FormData();
+      fd.append('project_pk', projSummarizeBtn.dataset.projectPk);
+      fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+      try {
+        const r = await fetch('{% url "ai_summarize_project" %}', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) {
+          const editor = document.getElementById('{{ form.content.id_for_label }}');
+          const titleField = document.getElementById('{{ form.title.id_for_label }}');
+          if (titleField && !titleField.value.trim()) {
+            titleField.value = "AI Overview: {{ project.title|escapejs }}";
+          }
+          const existing = editor.value;
+          editor.value = (existing ? existing + '\n\n---\n\n' : '') + data.summary;
+          status.textContent = data.fallback
+            ? 'Generated (fallback mode no API key configured). Click Save Summary to keep.'
+            : 'Project summary generated. Click Save Summary to keep changes.';
+          status.className = 'mt-2 small text-success';
+        } else {
+          status.textContent = 'Failed: ' + (data.error || 'unknown error');
+          status.className = 'mt-2 small text-danger';
+        }
+      } catch (e) {
+        status.textContent = 'Network error: ' + e.message;
+        status.className = 'mt-2 small text-danger';
+      }
+      projSummarizeBtn.disabled = false;
+      projSummarizeBtn.innerHTML = '<i class="bi bi-diagram-3"></i> Summarise Entire Project';
+    });
+  }
+</script>
+{% endblock %}
