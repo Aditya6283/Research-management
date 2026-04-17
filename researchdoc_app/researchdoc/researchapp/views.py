@@ -360,3 +360,125 @@ def resource_delete(request, pk):
     resource.delete()
     messages.success(request, "Resource deleted.")
     return redirect('project_detail', pk=project_pk)
+
+
+# ====
+# Research summaries with citations
+# ====
+
+@login_required
+def summary_view(request, project_pk=None):
+    """Combined summary editor + citations + comparison shortcuts."""
+    project = None
+    if project_pk:
+        project = get_object_or_404(
+            ResearchProject, pk=project_pk, owner=request.user,
+        )
+
+    summary = None
+    summary_pk = request.GET.get('summary')
+    if summary_pk and project:
+        summary = ResearchSummary.objects.filter(
+            pk=summary_pk, project=project,
+        ).first()
+
+    if request.method == 'POST' and project:
+        form = ResearchSummaryForm(request.POST, instance=summary)
+        if form.is_valid():
+            s = form.save(commit=False)
+            s.project = project
+            s.author = request.user
+            s.save()
+            messages.success(request, "Summary saved.")
+            return redirect('summary_view', project_pk=project.pk)
+    else:
+        form = ResearchSummaryForm(instance=summary)
+
+    citations = []
+    if summary:
+        citations = summary.citations.select_related('resource').all()
+
+    available_resources = []
+    if project:
+        available_resources = project.resources.all()
+
+    return render(request, 'summary.html', {
+        'project': project, 'summary': summary, 'form': form,
+        'citations': citations,
+        'available_resources': available_resources,
+        'comparisons': project.comparisons.all() if project else [],
+    })
+
+
+@login_required
+@require_POST
+def citation_add(request, summary_pk):
+    """
+    Add a citation in the chosen academic style. If the user supplies
+    custom citation text it is used as-is; otherwise the citation is
+    auto-formatted from the linked Resource's bibliographic metadata.
+    """
+    from .citations import format_citation
+    summary = get_object_or_404(
+        ResearchSummary, pk=summary_pk, project__owner=request.user,
+    )
+    resource_id = request.POST.get('resource_id')
+    resource = get_object_or_404(
+        Resource, pk=resource_id, project__owner=request.user,
+    )
+    style = request.POST.get('style', Citation.APA)
+    if style not in dict(Citation.STYLE_CHOICES):
+        style = Citation.APA
+
+    # Free plan is APA-only
+    sub = get_active_subscription(request.user)
+    if style != Citation.APA and not sub.feature_enabled('all_citation_styles'):
+        messages.info(
+            request,
+            "Only APA is available on the Free plan your citation was "
+            "saved as APA. Upgrade to Plus or Pro for IEEE, MLA, Chicago, "
+            "and Harvard.",
+        )
+        style = Citation.APA
+
+    citation_text = request.POST.get('citation_text', '').strip()
+    if not citation_text:
+        citation_text = format_citation(resource, style)
+    citation_text = citation_text[:1000]
+
+    Citation.objects.create(
+        summary=summary, resource=resource,
+        citation_text=citation_text, style=style,
+    )
+    messages.success(request, f"Citation added in {dict(Citation.STYLE_CHOICES)[style]}.")
+    return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
+
+
+@login_required
+@require_POST
+def citation_restyle(request, pk):
+    """Regenerate a citation in a different style."""
+    from .citations import format_citation
+    citation = get_object_or_404(
+        Citation, pk=pk, summary__project__owner=request.user,
+    )
+    new_style = request.POST.get('style', Citation.APA)
+    if new_style not in dict(Citation.STYLE_CHOICES):
+        new_style = Citation.APA
+    citation.style = new_style
+    citation.citation_text = format_citation(citation.resource, new_style)[:1000]
+    citation.save(update_fields=['style', 'citation_text'])
+    return JsonResponse({
+        'ok': True, 'citation_text': citation.citation_text,
+        'style': new_style,
+    })
+
+
+@login_required
+@require_POST
+def citation_delete(request, pk):
+    citation = get_object_or_404(
+        Citation, pk=pk, summary__project__owner=request.user,
+    )
+    citation.delete()
+    return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
