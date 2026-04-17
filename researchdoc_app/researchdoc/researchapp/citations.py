@@ -47,7 +47,7 @@ def _ieee_authors(authors):
     for name in authors:
         if ',' in name:
             surname, initials = [s.strip() for s in name.split(',', 1)]
-            out.append(f"{surname} {initials}")
+            out.append(f"{initials} {surname}")
         else:
             out.append(name)
     if len(out) > 6:
