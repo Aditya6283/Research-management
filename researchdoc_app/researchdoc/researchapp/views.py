@@ -482,3 +482,108 @@ def citation_delete(request, pk):
     )
     citation.delete()
     return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
+
+
+# ====
+# Comparison tables the spreadsheet-style "compare three tools" view
+# ====
+
+@login_required
+def comparison_create(request, project_pk):
+    project = get_object_or_404(
+        ResearchProject, pk=project_pk, owner=request.user,
+    )
+    if request.method == 'POST':
+        form = ComparisonTableForm(request.POST)
+        if form.is_valid():
+            table = form.save(commit=False)
+            table.project = project
+            table.save()
+            # Seed a default 4-column / 4-row layout
+            for i, name in enumerate(['Feature', 'Tool A', 'Tool B', 'Tool C']):
+                ComparisonColumn.objects.create(table=table, name=name, order=i)
+            for i, label in enumerate(['Accuracy', 'Speed', 'Cost', 'Integration']):
+                ComparisonRow.objects.create(table=table, label=label, order=i)
+            return redirect('comparison_edit', pk=table.pk)
+    else:
+        form = ComparisonTableForm()
+    return render(request, 'comparison_form.html', {
+        'form': form, 'project': project,
+    })
+
+
+@login_required
+def comparison_edit(request, pk):
+    table = get_object_or_404(
+        ComparisonTable, pk=pk, project__owner=request.user,
+    )
+    rows = list(table.rows.all())
+    columns = list(table.columns.all())
+    cells = {(c.row_id, c.column_id): c for c in table.cells.all()}
+
+    matrix = []
+    for r in rows:
+        row_cells = []
+        for c in columns:
+            cell = cells.get((r.id, c.id))
+            row_cells.append({
+                'row_id': r.id, 'col_id': c.id,
+                'value': cell.value if cell else '',
+            })
+        matrix.append({'row': r, 'cells': row_cells})
+
+    return render(request, 'comparison_edit.html', {
+        'table': table, 'rows': rows, 'columns': columns,
+        'matrix': matrix, 'project': table.project,
+    })
+
+
+@login_required
+@require_POST
+def comparison_save(request, pk):
+    """AJAX endpoint that accepts JSON and rewrites table contents."""
+    table = get_object_or_404(
+        ComparisonTable, pk=pk, project__owner=request.user,
+    )
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'Invalid JSON'}, status=400)
+
+    title = data.get('title', '').strip()
+    if title:
+        table.title = title
+        table.save(update_fields=['title', 'updated_at'])
+
+    table.cells.all().delete()
+    table.columns.all().delete()
+    table.rows.all().delete()
+
+    cols = [
+        ComparisonColumn.objects.create(table=table, name=n, order=i)
+        for i, n in enumerate(data.get('columns', []))
+    ]
+    rows = [
+        ComparisonRow.objects.create(table=table, label=l, order=i)
+        for i, l in enumerate(data.get('rows', []))
+    ]
+    for r_idx, row_values in enumerate(data.get('cells', [])):
+        for c_idx, value in enumerate(row_values):
+            if r_idx < len(rows) and c_idx < len(cols):
+                ComparisonCell.objects.create(
+                    table=table, row=rows[r_idx],
+                    column=cols[c_idx], value=value or '',
+                )
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def comparison_delete(request, pk):
+    table = get_object_or_404(
+        ComparisonTable, pk=pk, project__owner=request.user,
+    )
+    project_pk = table.project.pk
+    table.delete()
+    messages.success(request, "Comparison deleted.")
+    return redirect('project_detail', pk=project_pk)
