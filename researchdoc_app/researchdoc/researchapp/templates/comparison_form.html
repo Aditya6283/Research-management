@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}New Comparison ResearchDoc{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.title }}</a></li>
+      <li class="breadcrumb-item active">New comparison</li>
+    </ol>
+  </nav>
+
+  <h1 class="h2 fw-bold mb-1">New Comparison Table</h1>
+  <p class="text-muted">For project: <strong>{{ project.title }}</strong></p>
+
+  <form method="post" class="card-box col-md-7 mt-4">
+    {% csrf_token %}
+    <label class="form-label" for="{{ form.title.id_for_label }}">Title</label>
+    {{ form.title }}
+    <small class="text-muted d-block mt-1">
+      Give the table a short name (e.g. "Vector DB benchmark", "Climate
+      adaptation by region"). You'll add rows and columns on the next page.
+    </small>
+    <div class="d-flex gap-2 mt-4">
+      <a href="{% url 'project_detail' project.pk %}" class="btn btn-light flex-grow-1">Cancel</a>
+      <button type="submit" class="btn btn-primary flex-grow-1">
+        <i class="bi bi-plus-lg"></i> Create Table
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
