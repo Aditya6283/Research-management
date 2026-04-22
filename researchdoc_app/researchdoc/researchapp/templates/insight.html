@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Find your insights ResearchDoc{% endblock %}
+
+{% block extra_head %}
+<style>
+  .filter-box {
+    background: var(--rd-card);
+    border: 1px solid var(--rd-border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 1rem;
+  }
+  .result-card {
+    background: var(--rd-card);
+    border: 1px solid var(--rd-border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .result-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--rd-primary);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="text-center mb-4">
+    <h1 class="fw-bold h2">Find your insights</h1>
+    <p class="text-secondary">Search across all your research with precision.</p>
+  </div>
+
+  <form method="get" class="search-pill mx-auto" style="max-width:640px;">
+    <i class="bi bi-search text-muted"></i>
+    <input type="search" name="q" value="{{ query }}"
+           placeholder="Search papers, summaries, or projects..."
+           aria-label="Search query">
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  </form>
+
+  <div class="row mt-5">
+    <div class="col-md-3">
+      <form method="get">
+        <input type="hidden" name="q" value="{{ query }}">
+
+        <div class="filter-box">
+          <h6 class="fw-bold">Projects</h6>
+          {% for p in user_projects %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="project" value="{{ p.pk }}" id="p{{ p.pk }}"
+                {% if p.pk in selected_projects %}checked{% endif %}>
+              <label class="form-check-label" for="p{{ p.pk }}">{{ p.title }}</label>
+            </div>
+          {% empty %}
+            <p class="text-muted small">No projects yet.</p>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">Apply Filters</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-md-9">
+      <p class="text-muted mb-3">Showing {{ total_count }} result{{ total_count|pluralize }}{% if query %} for "<strong>{{ query }}</strong>"{% endif %}</p>
+
+      {% for r in results %}
+        <a href="{{ r.url }}" class="text-decoration-none text-dark">
+          <div class="result-card mb-3">
+            <span class="badge {% if r.type == 'summary' %}bg-primary text-white{% else %}bg-light text-dark{% endif %} mb-2">{{ r.badge }}</span>
+            <h5 class="fw-bold">{{ r.title }}</h5>
+            <p class="text-muted small">{{ r.description|truncatewords:30 }}</p>
+            <small class="text-secondary">Project: {{ r.project.title }}</small>
+          </div>
+        </a>
+      {% empty %}
+        <div class="card-box text-center py-5">
+          <p class="text-muted">No results found.</p>
+        </div>
+      {% endfor %}
+
+      {% if results.has_other_pages %}
+        <nav aria-label="Search pagination" class="text-center mt-4">
+          <ul class="pagination justify-content-center">
+            {% if results.has_previous %}
+              <li class="page-item"><a class="page-link" href="?q={{ query }}&page={{ results.previous_page_number }}">Previous</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ results.number }} of {{ results.paginator.num_pages }}</span></li>
+            {% if results.has_next %}
+              <li class="page-item"><a class="page-link" href="?q={{ query }}&page={{ results.next_page_number }}">Next</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
