@@ -587,3 +587,59 @@ def comparison_delete(request, pk):
     table.delete()
     messages.success(request, "Comparison deleted.")
     return redirect('project_detail', pk=project_pk)
+
+
+# ====
+# Search across resources + summaries uses extracted PDF text
+# ====
+
+@login_required
+def insight_search(request):
+    query = request.GET.get('q', '').strip()
+    project_filter = request.GET.getlist('project')
+
+    resource_qs = Resource.objects.filter(project__owner=request.user)
+    summary_qs = ResearchSummary.objects.filter(project__owner=request.user)
+
+    if query:
+        resource_qs = resource_qs.filter(
+            Q(title__icontains=query)
+            | Q(description__icontains=query)
+            | Q(extracted_text__icontains=query)
+        )
+        summary_qs = summary_qs.filter(
+            Q(title__icontains=query) | Q(content__icontains=query)
+        )
+
+    if project_filter:
+        resource_qs = resource_qs.filter(project_id__in=project_filter)
+        summary_qs = summary_qs.filter(project_id__in=project_filter)
+
+    combined = []
+    for r in resource_qs:
+        combined.append({
+            'type': 'resource', 'title': r.title,
+            'description': r.description, 'project': r.project,
+            'url': r.project.get_absolute_url(),
+            'badge': r.get_resource_type_display(),
+        })
+    for s in summary_qs:
+        combined.append({
+            'type': 'summary', 'title': s.title,
+            'description': (s.content or '')[:200], 'project': s.project,
+            'url': s.project.get_absolute_url(),
+            'badge': 'Summary',
+        })
+
+    paginator = Paginator(combined, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    user_projects = ResearchProject.objects.filter(owner=request.user)
+    return render(request, 'insight.html', {
+        'query': query, 'results': page_obj,
+        'user_projects': user_projects,
+        'selected_projects': [
+            int(p) for p in project_filter if p.isdigit()
+        ],
+        'total_count': len(combined),
+    })
