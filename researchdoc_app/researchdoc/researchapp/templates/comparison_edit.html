@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}{{ table.title }} Comparison{% endblock %}
+
+{% block extra_head %}
+<style>
+  body { background: var(--rd-bg); }
+  .card-box { background: var(--rd-card); border-radius: 16px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  table.comparison-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  table.comparison-table th, table.comparison-table td { padding: 6px; }
+  table.comparison-table input { width: 100%; border: 1px solid var(--rd-border); border-radius: 8px; padding: 8px; background: var(--rd-card-alt); }
+  table.comparison-table input:focus { background: var(--rd-card); outline: 2px solid #0d6efd; }
+  table.comparison-table th input { font-weight: 600; background: var(--rd-primary-soft); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.title }}</a></li>
+      <li class="breadcrumb-item active">{{ table.title }}</li>
+    </ol>
+  </nav>
+
+  <div class="card-box">
+    <div class="d-flex justify-content-between mb-3">
+      <input id="table-title" type="text" class="form-control" style="max-width:400px;background: var(--rd-input-bg);border:none;border-radius:10px;padding:10px;font-weight:600;" value="{{ table.title }}">
+      <div>
+        <button id="add-row-btn" class="btn btn-light btn-sm"><i class="bi bi-plus"></i> Row</button>
+        <button id="add-col-btn" class="btn btn-light btn-sm"><i class="bi bi-plus"></i> Column</button>
+        <button id="save-btn" class="btn btn-primary btn-sm"><i class="bi bi-save"></i> Save</button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="comparison-table" id="cmp-table">
+        <thead>
+          <tr>
+            <th style="width: 150px;">&nbsp;</th>
+            {% for col in columns %}
+              <th><input type="text" class="col-input" data-col-id="{{ col.id }}" value="{{ col.name }}"></th>
+            {% endfor %}
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in matrix %}
+          <tr data-row-id="{{ entry.row.id }}">
+            <td><input type="text" class="row-input" value="{{ entry.row.label }}"></td>
+            {% for cell in entry.cells %}
+              <td><input type="text" class="cell-input" data-row-id="{{ cell.row_id }}" data-col-id="{{ cell.col_id }}" value="{{ cell.value }}"></td>
+            {% endfor %}
+            <td><button class="btn btn-link p-0 text-dark remove-row-btn" aria-label="Remove row"><i class="bi bi-x"></i></button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="text-muted small mt-3">
+      Tip: Click any cell to edit. Use the buttons above to add rows or columns. Click Save to persist your changes.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const table = document.getElementById('cmp-table');
+  const tbody = table.querySelector('tbody');
+  const headerRow = table.querySelector('thead tr');
+  const csrf = '{{ csrf_token }}';
+
+  document.getElementById('add-col-btn').addEventListener('click', () => {
+    const name = prompt('Column name?', 'New column');
+    if (!name) return;
+    // Add to header (before the action column)
+    const th = document.createElement('th');
+    th.innerHTML = `<input type="text" class="col-input" value="${name}">`;
+    headerRow.insertBefore(th, headerRow.lastElementChild);
+    // Add a cell to every row
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const td = document.createElement('td');
+      td.innerHTML = '<input type="text" class="cell-input" value="">';
+      tr.insertBefore(td, tr.lastElementChild);
+    });
+  });
+
+  document.getElementById('add-row-btn').addEventListener('click', () => {
+    const label = prompt('Row label?', 'New row');
+    if (!label) return;
+    const colCount = headerRow.querySelectorAll('th').length - 2;
+    const tr = document.createElement('tr');
+    let html = `<td><input type="text" class="row-input" value="${label}"></td>`;
+    for (let i = 0; i < colCount; i++) {
+      html += '<td><input type="text" class="cell-input" value=""></td>';
+    }
+    html += '<td><button class="btn btn-link p-0 text-dark remove-row-btn"><i class="bi bi-x"></i></button></td>';
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+    attachRemoveHandlers();
+  });
+
+  function attachRemoveHandlers() {
+    tbody.querySelectorAll('.remove-row-btn').forEach(btn => {
+      btn.onclick = (e) => { e.target.closest('tr').remove(); };
+    });
+  }
+  attachRemoveHandlers();
+
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    const columns = Array.from(headerRow.querySelectorAll('.col-input')).map(i => i.value);
+    const rows = [];
+    const cells = [];
+    tbody.querySelectorAll('tr').forEach(tr => {
+      rows.push(tr.querySelector('.row-input').value);
+      cells.push(Array.from(tr.querySelectorAll('.cell-input')).map(i => i.value));
+    });
+    const payload = {
+      title: document.getElementById('table-title').value,
+      columns, rows, cells,
+    };
+    const r = await fetch('{% url "comparison_save" table.pk %}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      const btn = document.getElementById('save-btn');
+      btn.innerHTML = '<i class="bi bi-check"></i> Saved';
+      setTimeout(() => { btn.innerHTML = '<i class="bi bi-save"></i> Save'; }, 1500);
+    } else {
+      alert('Save failed: ' + (data.error || 'unknown'));
+    }
+  });
+</script>
+{% endblock %}
