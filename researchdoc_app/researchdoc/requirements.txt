@@ -9,3 +9,12 @@ whitenoise>=6.6.0
 
 # PDF text extraction for search and AI summarisation
 pypdf>=4.0.0
+
+# GenAI (Applied Class 7) LangChain + HTMX
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-openai>=0.1.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+markdown>=3.5
+django-htmx>=1.27.0
