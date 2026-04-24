@@ -643,3 +643,65 @@ def insight_search(request):
         ],
         'total_count': len(combined),
     })
+
+
+# AI features
+# All four AI endpoints follow the same shape:
+#   1. Build a PromptTemplate.
+#   2. Compose `chain = prompt | llm` (or `| parser` for structured output).
+#   3. Call chain.invoke(...) and return the result.
+# When there's no API key set, each view falls back to a deterministic
+# algorithm so the demo doesn't break on a fresh machine.
+
+@login_required
+@require_POST
+@_feature_required('ai_refine_summary',
+                   'AI summary refinement is a Pro-tier feature.')
+def ai_refine_summary(request):
+    """Polish an existing summary improves tone without changing facts."""
+    from django.conf import settings
+
+    summary_pk = request.POST.get('summary_pk')
+    summary = get_object_or_404(
+        ResearchSummary, pk=summary_pk, project__owner=request.user,
+    )
+    resources = summary.project.resources.all()
+    resource_context = "\n".join(
+        f"- {r.title}: {r.description or '(no description)'}"
+        for r in resources
+    )
+
+    if not settings.OPENAI_API_KEY:
+        return JsonResponse({
+            'ok': False,
+            'error': 'No LLM API key configured on the server.',
+        }, status=503)
+
+    try:
+        llm = _build_llm(temperature=0.7)
+        from langchain_core.prompts import PromptTemplate
+        prompt = PromptTemplate(
+            template=(
+                "You are an academic editor helping a researcher polish a "
+                "literature-review summary. Improve clarity, flow, and "
+                "academic tone while preserving every claim already in the "
+                "draft. Use the project's resources for context only never "
+                "introduce citations, numbers, or claims that are not present "
+                "in the draft.\n\n"
+                "Project resources (context only):\n{resources}\n\n"
+                "Current draft:\n{draft}\n\n"
+                "Return ONLY the refined Markdown text no preamble, no "
+                "explanation of what you changed. Preserve any existing "
+                "**Section Headers** the user has used."
+            ),
+            input_variables=['resources', 'draft'],
+        )
+        chain = prompt | llm
+        result = chain.invoke({
+            'resources': resource_context,
+            'draft': summary.content,
+        })
+        refined = getattr(result, 'content', str(result))
+        return JsonResponse({'ok': True, 'content': refined})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
