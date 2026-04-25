@@ -801,3 +801,142 @@ def ai_suggest_citations(request):
         return JsonResponse({'ok': True, 'suggestions': suggestions})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@_feature_required('ai_project_summary',
+                   'Project-wide AI synthesis is a Pro-tier feature.')
+def ai_summarize_project(request):
+    """
+    Generate a full-project research summary.
+
+    Pulls every Resource (title, description, extracted_text excerpt),
+    every existing ResearchSummary, and every ComparisonTable from the
+    project, then asks the LLM to produce a single cohesive overview.
+    Useful for the demo flow described in the assessment brief.
+    """
+    from django.conf import settings
+
+    project_pk = request.POST.get('project_pk')
+    project = get_object_or_404(
+        ResearchProject, pk=project_pk, owner=request.user,
+    )
+    resources = list(project.resources.all())
+    summaries = list(project.summaries.all())
+    comparisons = list(project.comparisons.all())
+
+    if not resources and not summaries and not comparisons:
+        return JsonResponse({
+            'ok': False,
+            'error': 'This project has no resources, summaries, or comparison '
+                     'tables yet add some content before requesting a summary.',
+        }, status=400)
+
+    # Build a compact corpus from project contents
+    blocks = [f"Project title: {project.title}\nDescription: {project.description}"]
+    if resources:
+        res_lines = []
+        for r in resources:
+            excerpt = (r.extracted_text or r.description or '')[:600]
+            res_lines.append(
+                f"- [{r.get_resource_type_display()}] {r.title}\n"
+                f"  authors: {r.authors or 'n/a'}, year: {r.year or 'n/a'}, venue: {r.venue or 'n/a'}\n"
+                f"  excerpt: {excerpt}"
+            )
+        blocks.append("Resources:\n" + "\n".join(res_lines))
+    if summaries:
+        blocks.append("Existing summaries:\n" + "\n\n".join(
+            f"== {s.title} ==\n{s.content[:1200]}" for s in summaries
+        ))
+    if comparisons:
+        cmp_lines = []
+        for c in comparisons:
+            cols = [col.name for col in c.columns.all()]
+            rows = [row.label for row in c.rows.all()]
+            cmp_lines.append(
+                f"- {c.title} ({len(rows)} rows × {len(cols)} columns; "
+                f"columns: {', '.join(cols)})"
+            )
+        blocks.append("Comparison tables:\n" + "\n".join(cmp_lines))
+
+    corpus = "\n\n".join(blocks)
+    if len(corpus) > 12000:
+        corpus = corpus[:12000] + "\n\n[... truncated for length ...]"
+
+    # Fallback when no API key is available produce a deterministic
+    # extractive summary so demos still show something useful.
+    if not settings.OPENAI_API_KEY:
+        bullet_lines = [f"**Project overview** {project.title}", '']
+        if project.description:
+            bullet_lines.append(project.description)
+            bullet_lines.append('')
+        bullet_lines.append('**Resources**')
+        for r in resources[:8]:
+            bullet_lines.append(
+                f"- {r.title}" + (f" {r.authors} ({r.year})" if r.authors else '')
+            )
+        if summaries:
+            bullet_lines.append('')
+            bullet_lines.append('**Key takeaways from existing summaries**')
+            for s in summaries:
+                first = (s.content.split('.')[0] if s.content else s.title).strip()
+                bullet_lines.append(f"- {first}.")
+        if comparisons:
+            bullet_lines.append('')
+            bullet_lines.append('**Comparison tables**')
+            for c in comparisons:
+                bullet_lines.append(f"- {c.title}")
+        return JsonResponse({
+            'ok': True, 'summary': '\n'.join(bullet_lines),
+            'fallback': True,
+        })
+
+    try:
+        from langchain_core.prompts import PromptTemplate
+        llm = _build_llm(temperature=0.3, max_tokens=1500)
+
+        prompt = PromptTemplate(
+            template=(
+                "You are a senior research assistant writing a synthesis for a "
+                "researcher's literature-review folder. Synthesise the entire "
+                "project corpus below its resources, existing summaries, and "
+                "comparison tables into a single Markdown overview.\n\n"
+                "Project corpus:\n{corpus}\n\n"
+                "Write the output with EXACTLY these section headers and order. "
+                "Use clean Markdown, no extraneous preamble:\n\n"
+                "**Project Overview**\n"
+                "Two to four sentences naming the project's scope, the core "
+                "research question, and the type of evidence assembled "
+                "(empirical, theoretical, comparative, etc.).\n\n"
+                "**Themes & Findings**\n"
+                "Four to six bullet points (- prefix). Each bullet must:\n"
+                "1. lead with a substantive theme or finding,\n"
+                "2. cite supporting resources inline in parentheses using their "
+                "   exact titles, e.g. (\"Attention Is All You Need\"),\n"
+                "3. note any disagreement between resources when present.\n\n"
+                "**Methodological Patterns**\n"
+                "Two sentences identifying recurring methods or evaluation "
+                "approaches across the resources.\n\n"
+                "**Comparisons**\n"
+                "Two sentences summarising what the comparison tables reveal "
+                "(which axes most differentiate the items), or "
+                "'No comparison tables in this project.' if none exist.\n\n"
+                "**Gaps & Open Questions**\n"
+                "Two to three bullet points (- prefix) naming concrete next "
+                "research directions or unresolved tensions. Tie each one back "
+                "to a specific resource where possible.\n\n"
+                "Rules:\n"
+                "- Use only information present in the corpus.\n"
+                "- Never invent new citations or papers.\n"
+                "- Quote numbers and named entities verbatim when supplied.\n"
+                "- Keep the entire summary under 450 words."
+            ),
+            input_variables=['corpus'],
+        )
+        chain = prompt | llm
+        result = chain.invoke({'corpus': corpus})
+        summary_text = getattr(result, 'content', str(result))
+        return JsonResponse({'ok': True, 'summary': summary_text})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
