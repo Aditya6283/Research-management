@@ -705,3 +705,99 @@ def ai_refine_summary(request):
         return JsonResponse({'ok': True, 'content': refined})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@_feature_required('ai_suggest_citations',
+                   'AI citation suggestions require a Plus or Pro plan.')
+def ai_suggest_citations(request):
+    """
+    Suggest which uploaded resources are most relevant to a summary.
+
+    Uses a Pydantic schema + JsonOutputParser so we get back a clean list
+    of IDs instead of having to regex-parse the LLM's text response.
+    """
+    from django.conf import settings
+    from typing import List
+    from pydantic import BaseModel, Field
+
+    summary_pk = request.POST.get('summary_pk')  # noqa: F841 used below
+    summary = get_object_or_404(
+        ResearchSummary, pk=summary_pk, project__owner=request.user,
+    )
+    resources = list(summary.project.resources.all())
+    if not resources:
+        return JsonResponse({
+            'ok': False, 'error': 'No resources in this project yet.',
+        })
+
+    # Fallback algorithm if no API key keyword overlap
+    if not settings.OPENAI_API_KEY:
+        words = set(w.lower() for w in summary.content.split() if len(w) > 4)
+        scored = []
+        for r in resources:
+            res_words = set(
+                w.lower() for w in (r.title + ' ' + r.description).split()
+                if len(w) > 4
+            )
+            scored.append((len(words & res_words), r))
+        scored.sort(reverse=True, key=lambda x: x[0])
+        return JsonResponse({
+            'ok': True,
+            'suggestions': [
+                {'id': r.id, 'title': r.title}
+                for s, r in scored[:3] if s > 0
+            ],
+            'fallback': True,
+        })
+
+    try:
+        # Pydantic schema JsonOutputParser will validate the LLM response
+        # against this and hand us back a real dict, not a JSON string.
+        class CitationSuggestions(BaseModel):
+            ids: List[int] = Field(
+                description="List of relevant resource IDs in order of relevance",
+            )
+
+        from langchain_core.output_parsers import JsonOutputParser
+        from langchain_core.prompts import PromptTemplate
+        parser = JsonOutputParser(pydantic_object=CitationSuggestions)
+
+        llm = _build_llm(temperature=0.3)
+
+        resource_lines = "\n".join(
+            f"[{r.id}] {r.title}: {r.description}" for r in resources
+        )
+        prompt = PromptTemplate(
+            template=(
+                "You are an academic citation assistant. The researcher has "
+                "drafted the summary below and uploaded the listed resources. "
+                "Identify which resources are MOST cite-worthy support for "
+                "specific claims in the summary. Rank by topical overlap and "
+                "the specificity of evidence each resource provides.\n\n"
+                "Summary text:\n{summary}\n\n"
+                "Available resources (id, title, description):\n{resources}\n\n"
+                "{format_instructions}\n"
+                "Return the 3 most relevant resource IDs ordered from most to "
+                "least relevant. If fewer than 3 resources are genuinely "
+                "relevant, return only those that are. Do not invent IDs."
+            ),
+            input_variables=['summary', 'resources'],
+            partial_variables={
+                'format_instructions': parser.get_format_instructions(),
+            },
+        )
+        chain = prompt | llm | parser
+        result = chain.invoke({
+            'summary': summary.content,
+            'resources': resource_lines,
+        })
+        ids = result.get('ids', []) if isinstance(result, dict) else []
+        suggestions = [
+            {'id': r.id, 'title': r.title}
+            for r in resources if r.id in ids
+        ]
+        return JsonResponse({'ok': True, 'suggestions': suggestions})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
