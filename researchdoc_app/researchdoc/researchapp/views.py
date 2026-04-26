@@ -940,3 +940,97 @@ def ai_summarize_project(request):
         return JsonResponse({'ok': True, 'summary': summary_text})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+@_feature_required('ai_paper_summary',
+                   'AI paper summarisation requires a Plus or Pro plan.')
+def ai_summarize_paper(request):
+    """
+    Summarise a single uploaded paper.
+
+    We pull the text out of the PDF at upload time (see resource_upload),
+    so by the time we get here the paper's content is already sitting in
+    resource.extracted_text. We send the first ~8000 chars to the LLM and
+    ask for a structured Markdown summary that the frontend can paste
+    straight into the editor.
+    """
+    from django.conf import settings
+    resource_id = request.POST.get('resource_id')
+    resource = get_object_or_404(
+        Resource, pk=resource_id, project__owner=request.user,
+    )
+
+    paper_text = resource.extracted_text or resource.description or ''
+    if not paper_text.strip():
+        return JsonResponse({
+            'ok': False,
+            'error': 'No text could be extracted from this resource. '
+                     'For PDFs, make sure the file contains selectable text '
+                     '(not just scanned images).',
+        }, status=400)
+
+    # Truncate to ~8000 chars so we don't blow the context window
+    if len(paper_text) > 8000:
+        paper_text = paper_text[:8000] + '\n\n[... truncated for length ...]'
+
+    if not settings.OPENAI_API_KEY:
+        # Fallback: extract first sentences if no API key configured
+        sentences = [s.strip() for s in paper_text.split('.') if len(s.strip()) > 20]
+        summary = '. '.join(sentences[:5]) + '.'
+        return JsonResponse({
+            'ok': True, 'summary': summary, 'fallback': True,
+            'message': 'No LLM API key returned first sentences as fallback.',
+        })
+
+    try:
+        from langchain_core.prompts import PromptTemplate
+        llm = _build_llm(temperature=0.3, max_tokens=1024)
+
+        prompt = PromptTemplate(
+            template=(
+                "You are an experienced academic research assistant writing for "
+                "a graduate student preparing a literature review. Read the "
+                "paper carefully and produce a precise, faithful summary.\n\n"
+                "Paper title: {title}\n\n"
+                "Paper content (extracted text):\n{content}\n\n"
+                "Write the summary in clean Markdown using EXACTLY these "
+                "section headers and order:\n\n"
+                "**Overview**\n"
+                "Two to three sentences identifying the topic, the problem the "
+                "authors are solving, and their key contribution. Be specific "
+                "mention concrete techniques, datasets, or systems where the "
+                "text supports it.\n\n"
+                "**Key Findings**\n"
+                "Three to five bullet points (- prefix). Each bullet should "
+                "lead with the finding, then a short supporting clause. Quote "
+                "metrics (percentages, accuracy, p-values) verbatim when the "
+                "text gives them.\n\n"
+                "**Methodology**\n"
+                "Two to three sentences naming the dataset(s), model(s), or "
+                "experimental setup. Mention controls, sample sizes, or "
+                "evaluation benchmarks when they are stated.\n\n"
+                "**Limitations**\n"
+                "Two sentences. Distinguish between author-acknowledged "
+                "limitations and gaps you can infer from the text. Mark "
+                "inferred items with '(inferred)'.\n\n"
+                "**Why It Matters**\n"
+                "One sentence connecting this paper to broader research "
+                "directions or downstream applications.\n\n"
+                "Rules:\n"
+                "- Be factual and concise. Do not invent numbers, names, or "
+                "  citations not present in the text.\n"
+                "- Prefer specific verbs ('demonstrates', 'measures', 'proves') "
+                "  over hedge words.\n"
+                "- If a section truly cannot be filled from the text, write "
+                "  'Not stated in the available text.' do not pad it."
+            ),
+            input_variables=['title', 'content'],
+        )
+        chain = prompt | llm
+        result = chain.invoke({'title': resource.title, 'content': paper_text})
+        summary_text = getattr(result, 'content', str(result))
+        return JsonResponse({'ok': True, 'summary': summary_text})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
