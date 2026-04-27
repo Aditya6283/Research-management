@@ -1,0 +1,6 @@
+{# Single chat bubble user or bot. Used for the initial bot greeting. #}
+<div class="d-flex {% if is_user %}justify-content-end{% else %}justify-content-start{% endif %} mb-3">
+  <div class="chat-bubble {% if is_user %}chat-bubble-user{% else %}chat-bubble-bot{% endif %}">
+    <div class="mb-0">{{ message|safe }}</div>
+  </div>
+</div>
