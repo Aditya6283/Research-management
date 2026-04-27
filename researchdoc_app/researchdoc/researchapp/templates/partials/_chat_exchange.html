@@ -1,0 +1,12 @@
+{# Echo back the user's message and the bot's reply as one HTML fragment.
+   Returned by the /chat/ POST endpoint so HTMX can append both at once. #}
+<div class="d-flex justify-content-end mb-3">
+  <div class="chat-bubble chat-bubble-user">
+    <div class="mb-0">{{ user_message }}</div>
+  </div>
+</div>
+<div class="d-flex justify-content-start mb-3">
+  <div class="chat-bubble chat-bubble-bot">
+    <div class="mb-0">{{ bot_message|safe }}</div>
+  </div>
+</div>
