@@ -1034,3 +1034,185 @@ def ai_summarize_paper(request):
         return JsonResponse({'ok': True, 'summary': summary_text})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+# AI Research Coach Chatbot
+# This is the "Interview Coach" pattern from the AC7 lab, rebranded for
+# research. The chat history lives in the Django session so the LLM keeps
+# context between turns. HTMX swaps in the user bubble + bot reply as one
+# fragment per turn no full page reloads, no JavaScript we have to write.
+#
+# Four routes:
+#   /chat/<project_pk>/   GET   render the chat page, reset session
+#   /chat/init/           POST  get the bot's opening message (fires on load)
+#   /chat/                POST  handle one user message; returns both bubbles
+#   /chat/<pk>/reset/     POST  clear history and reload
+
+def _build_project_context(project):
+    """Compact corpus of a project for the chatbot system prompt."""
+    parts = [
+        f"Project title: {project.title}",
+        f"Project description: {project.description or '(none)'}",
+    ]
+    resources = list(project.resources.all()[:12])
+    if resources:
+        lines = []
+        for r in resources:
+            lines.append(
+                f"- [{r.get_resource_type_display()}] {r.title}"
+                + (f" (authors: {r.authors}, year: {r.year})" if r.authors else '')
+            )
+        parts.append("Resources:\n" + "\n".join(lines))
+    summaries = list(project.summaries.all()[:4])
+    if summaries:
+        parts.append("Existing summaries:\n" + "\n\n".join(
+            f"=== {s.title} ===\n{(s.content or '')[:600]}" for s in summaries
+        ))
+    return "\n\n".join(parts)[:6000]
+
+
+@login_required
+@_feature_required('ai_project_summary',
+                   'The AI Research Coach is a Pro-tier feature.')
+def research_chat_ui(request, project_pk):
+    """Render the chat interface for a project; reset its session history."""
+    project = get_object_or_404(
+        ResearchProject, pk=project_pk, owner=request.user,
+    )
+    request.session['chat_project_pk'] = project.pk
+    request.session['chat_history'] = []
+    request.session['chat_context'] = _build_project_context(project)
+    return render(request, 'chatui.html', {'project': project})
+
+
+@login_required
+@require_POST
+@_feature_required('ai_project_summary',
+                   'The AI Research Coach is a Pro-tier feature.')
+def research_chat_reset(request, project_pk):
+    """Clear chat history and reload the page."""
+    project = get_object_or_404(
+        ResearchProject, pk=project_pk, owner=request.user,
+    )
+    request.session['chat_project_pk'] = project.pk
+    request.session['chat_history'] = []
+    request.session['chat_context'] = _build_project_context(project)
+    messages.info(request, "Chat cleared. Coach is back at the start.")
+    return redirect('research_chat_ui', project_pk=project.pk)
+
+
+@login_required
+@require_POST
+@_feature_required('ai_project_summary',
+                   'The AI Research Coach is a Pro-tier feature.')
+def research_chat_init(request):
+    """
+    POST fired on page load by hx-trigger="load". Generates the
+    opening greeting from the coach and returns a single chat bubble
+    partial.
+    """
+    context = request.session.get(
+        'chat_context', 'No project loaded.'
+    )
+
+    system_prompt = (
+        "You are a senior academic Research Coach helping a researcher think "
+        "through their project. You have read the project's full context "
+        "below.\n\n"
+        f"PROJECT CONTEXT:\n{context}\n\n"
+        "Behavioural rules:\n"
+        "- Greet the researcher warmly and reference the project by name.\n"
+        "- Ask ONE concrete opening question that helps you understand "
+        "  what they want to focus on (e.g., scope clarification, gap "
+        "  analysis, methodology critique, literature framing).\n"
+        "- Keep the greeting under 80 words.\n"
+        "- Use Markdown for emphasis but no headings.\n"
+        "- Never invent papers, authors, or citations not present in the "
+        "  PROJECT CONTEXT above."
+    )
+
+    llm = _build_llm(temperature=0.7)
+    if llm is None:
+        bot_message = mark_safe(_md_lib.markdown(
+            "Hi! I'm your **Research Coach**. I've read your project's "
+            "resources and summaries. What would you like to dig into first "
+            "the literature gaps, the methodology, or the framing of your "
+            "key claims?\n\n*(Note: running in fallback mode no API key "
+            "configured.)*"
+        ))
+    else:
+        try:
+            from langchain_core.prompts import ChatPromptTemplate
+            prompt = ChatPromptTemplate.from_messages([
+                ('system', system_prompt),
+                ('human', 'Start the conversation.'),
+            ])
+            chain = prompt | llm
+            response = chain.invoke({})
+            bot_message = mark_safe(_md_lib.markdown(response.content))
+        except Exception as e:
+            bot_message = mark_safe(f"Sorry, couldn't reach the LLM: {e}")
+
+    # Persist initial system + assistant turn in session history
+    request.session['chat_history'] = [
+        {'role': 'system', 'content': system_prompt},
+        {'role': 'assistant', 'content': str(bot_message)},
+    ]
+    request.session.modified = True
+
+    return render(request, 'partials/_chat_message.html', {
+        'message': bot_message, 'is_user': False,
+    })
+
+
+@login_required
+@require_POST
+@_feature_required('ai_project_summary',
+                   'The AI Research Coach is a Pro-tier feature.')
+def research_chat(request):
+    """
+    POST handles each user message. Returns both the user's bubble
+    AND the bot's reply in one HTMX response (the _chat_exchange.html
+    partial). The session keeps the full conversation so the LLM has
+    context.
+    """
+    user_message = request.POST.get('message', '').strip()
+    if not user_message:
+        return HttpResponse('')
+
+    history = request.session.get('chat_history', [])
+    history.append({'role': 'human', 'content': user_message})
+
+    llm = _build_llm(temperature=0.7)
+    if llm is None:
+        bot_reply = (
+            "Running in fallback mode (no API key configured). To use the "
+            "live coach, set OPENAI_API_KEY in .env and restart the server."
+        )
+    else:
+        try:
+            from langchain_core.prompts import ChatPromptTemplate
+            lc_messages = []
+            for msg in history:
+                role = msg['role']
+                if role == 'system':
+                    lc_messages.append(('system', msg['content']))
+                elif role in ('human', 'user'):
+                    lc_messages.append(('human', msg['content']))
+                elif role == 'assistant':
+                    lc_messages.append(('assistant', msg['content']))
+            prompt = ChatPromptTemplate.from_messages(lc_messages)
+            chain = prompt | llm
+            response = chain.invoke({})
+            bot_reply = response.content
+        except Exception as e:
+            bot_reply = f"Sorry, an error occurred: {e}"
+
+    history.append({'role': 'assistant', 'content': bot_reply})
+    request.session['chat_history'] = history
+    request.session.modified = True
+
+    return render(request, 'partials/_chat_exchange.html', {
+        'user_message': user_message,
+        'bot_message': mark_safe(_md_lib.markdown(bot_reply)),
+    })
