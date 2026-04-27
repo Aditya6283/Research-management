@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Research Coach {{ project.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .chat-bubble {
+    max-width: 75%;
+    padding: 10px 16px;
+    border-radius: 16px;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    box-shadow: var(--rd-shadow-sm);
+  }
+  .chat-bubble-user {
+    background: var(--rd-primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble-bot {
+    background: var(--rd-card-alt);
+    color: var(--rd-text);
+    border: 1px solid var(--rd-border);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble p:last-child { margin-bottom: 0; }
+  .chat-bubble ul, .chat-bubble ol { margin: 6px 0 6px 18px; padding: 0; }
+  .chat-bubble code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 5px; border-radius: 4px; font-size: 0.85em;
+  }
+  #chat-container {
+    height: 480px;
+    overflow-y: auto;
+    background: var(--rd-bg);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .chat-header {
+    background: var(--rd-grad-primary);
+    color: #fff;
+    padding: 16px 20px;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-typing {
+    font-style: italic;
+    color: var(--rd-text-muted);
+    padding: 6px 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'project_detail' project.pk %}">{{ project.title }}</a></li>
+      <li class="breadcrumb-item active">Research Coach</li>
+    </ol>
+  </nav>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      <div class="card-box p-0 overflow-hidden">
+        <div class="chat-header">
+          <div class="icon-box" style="background: rgba(255,255,255,0.2); color: #fff; width: 44px; height: 44px;">
+            <i class="bi bi-robot" style="font-size: 22px;"></i>
+          </div>
+          <div>
+            <h5 class="mb-0 text-white">AI Research Coach</h5>
+            <small style="opacity: 0.85;">Project: {{ project.title }}</small>
+          </div>
+        </div>
+
+        <div id="chat-container">
+          <div id="chat-messages"></div>
+
+          <div id="chat-spinner" class="htmx-indicator chat-typing">
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Coach is thinking...
+          </div>
+        </div>
+
+        <div class="p-3" style="border-top: 1px solid var(--rd-border);">
+          <form hx-post="{% url 'research_chat' %}"
+                hx-target="#chat-messages"
+                hx-swap="beforeend"
+                hx-indicator="#chat-spinner"
+                hx-on::after-request="this.reset(); document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;">
+            <div class="input-group">
+              <textarea name="message" class="form-control" rows="2"
+                        placeholder="Ask the coach about your project, request a literature gap analysis, or challenge an idea..."
+                        required style="resize: none;"></textarea>
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-send-fill"></i>
+              </button>
+            </div>
+            <small class="text-muted mt-2 d-block">
+              <i class="bi bi-info-circle"></i>
+              The coach has read your project's resources, summaries, and comparisons.
+            </small>
+          </form>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2 justify-content-between">
+        <a href="{% url 'project_detail' project.pk %}" class="btn btn-light">
+          <i class="bi bi-arrow-left"></i> Back to project
+        </a>
+        <form method="post" action="{% url 'research_chat_reset' project.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-arrow-counterclockwise"></i> Clear chat
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Auto-fetch the bot's opening greeting on page load #}
+<div hx-post="{% url 'research_chat_init' %}"
+     hx-trigger="load"
+     hx-target="#chat-messages"
+     hx-swap="beforeend"
+     hx-indicator="#chat-spinner"></div>
+{% endblock %}
