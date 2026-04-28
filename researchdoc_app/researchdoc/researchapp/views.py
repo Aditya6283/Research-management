@@ -1216,3 +1216,90 @@ def research_chat(request):
         'user_message': user_message,
         'bot_message': mark_safe(_md_lib.markdown(bot_reply)),
     })
+
+
+# ====
+# Subscription / Pricing
+# ====
+
+def oauth_check(request, provider):
+    """
+    Intercept social-login clicks. If the SocialApp for the requested
+    provider has real credentials, hand off to allauth's normal flow.
+    If it still has the placeholder seed values, show our friendly
+    'OAuth not configured' page instead of letting the user land on
+    Google's invalid_client error screen.
+    """
+    from allauth.socialaccount.models import SocialApp
+    if provider not in {'google'}:
+        return redirect('account_login')
+    try:
+        app = SocialApp.objects.get(provider=provider)
+    except SocialApp.DoesNotExist:
+        return render(request, 'socialaccount/authentication_error.html', status=400)
+    if app.client_id.startswith('configure-in-admin') or not app.client_id:
+        return render(request, 'socialaccount/authentication_error.html', status=400)
+    # Real credentials defer to allauth.
+    return redirect(f'/researchdoc/accounts/{provider}/login/')
+
+
+def pricing(request):
+    """Public pricing page shows the three plans and lets logged-in
+    users 'subscribe' (in-app, no payment gateway)."""
+    current_plan = None
+    if request.user.is_authenticated:
+        current_plan = get_active_subscription(request.user).plan_type
+
+    plans = [
+        {
+            'code': Subscription.FREE,
+            'data': PLAN_DEFINITIONS[Subscription.FREE],
+            'featured': False,
+        },
+        {
+            'code': Subscription.PLUS,
+            'data': PLAN_DEFINITIONS[Subscription.PLUS],
+            'featured': True,  # highlighted middle column
+        },
+        {
+            'code': Subscription.PRO,
+            'data': PLAN_DEFINITIONS[Subscription.PRO],
+            'featured': False,
+        },
+    ]
+    return render(request, 'pricing.html', {
+        'plans': plans, 'current_plan': current_plan,
+    })
+
+
+@login_required
+@require_POST
+def subscribe(request):
+    """
+    Switch the user's subscription plan.
+
+    This is an in-app simulated billing flow no real payment gateway.
+    Updates (or creates) the user's active Subscription record.
+    """
+    from django.utils import timezone
+
+    plan_code = request.POST.get('plan', '').strip()
+    if plan_code not in dict(Subscription.PLAN_CHOICES):
+        messages.error(request, "Invalid plan selection.")
+        return redirect('pricing')
+
+    sub = get_active_subscription(request.user)
+    sub.plan_type = plan_code
+    sub.renewed_at = timezone.now()
+    sub.save(update_fields=['plan_type', 'renewed_at', 'updated_at'])
+
+    plan_name = PLAN_DEFINITIONS[plan_code]['name']
+    if plan_code == Subscription.FREE:
+        messages.info(request, f"Your plan was changed to {plan_name}.")
+    else:
+        messages.success(
+            request,
+            f"Welcome to ResearchDoc {plan_name}! All {plan_name} features "
+            f"are now unlocked.",
+        )
+    return redirect('dashboard')
