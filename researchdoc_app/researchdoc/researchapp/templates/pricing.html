@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Pricing ResearchDoc{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <div class="text-center mx-auto" style="max-width: 720px;">
+    <span class="badge bg-primary mb-3">Pricing</span>
+    <h1 class="fw-bold mb-3" style="font-size: 2.6rem;">Simple, research-friendly plans.</h1>
+    <p class="text-muted" style="font-size: 1.1rem;">
+      Start free. Upgrade when your literature review grows beyond a few papers.
+      All plans include the core CRUD workspace higher tiers unlock the
+      AI tooling and remove project &amp; paper limits.
+    </p>
+  </div>
+
+  <div class="row g-4 mt-4 align-items-stretch">
+    {% for entry in plans %}
+      <div class="col-lg-4 d-flex">
+        <div class="pricing-card flex-grow-1
+                    {% if entry.featured %}featured{% endif %}
+                    {% if entry.code == current_plan %}current{% endif %}">
+
+          {% if entry.featured %}
+            <span class="featured-badge">Most popular</span>
+          {% endif %}
+
+          <div class="plan-name">{{ entry.data.name }}</div>
+          <div class="plan-price">
+            {{ entry.data.price_label }}<small> / month</small>
+          </div>
+          <p class="text-muted mt-2 mb-0">{{ entry.data.tagline }}</p>
+
+          <ul>
+            {% for label, included in entry.data.feature_list %}
+              <li class="{% if not included %}disabled{% endif %}">
+                {% if included %}
+                  <i class="bi bi-check2"></i>
+                {% else %}
+                  <i class="bi bi-x"></i>
+                {% endif %}
+                <span>{{ label }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+
+          {% if user.is_authenticated %}
+            {% if entry.code == current_plan %}
+              <button class="btn btn-light w-100" disabled>
+                <i class="bi bi-check-circle"></i> You're on this plan
+              </button>
+            {% else %}
+              <form method="post" action="{% url 'subscribe' %}">
+                {% csrf_token %}
+                <input type="hidden" name="plan" value="{{ entry.code }}">
+                <button type="submit"
+                        class="btn {% if entry.featured %}btn-ai{% else %}btn-primary{% endif %} w-100">
+                  {% if entry.data.price == 0 %}
+                    Downgrade to {{ entry.data.name }}
+                  {% else %}
+                    Upgrade to {{ entry.data.name }}
+                  {% endif %}
+                </button>
+              </form>
+            {% endif %}
+          {% else %}
+            <a href="{% url 'account_signup' %}" class="btn {% if entry.featured %}btn-ai{% else %}btn-primary{% endif %} w-100">
+              Get started
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- FAQ -->
+  <div class="row mt-5 pt-4 g-4">
+    <div class="col-12 text-center">
+      <h2 class="fw-bold mb-3" style="font-size: 1.6rem;">Frequently asked</h2>
+    </div>
+    <div class="col-md-6">
+      <div class="card-box h-100">
+        <h6 class="fw-bold"><i class="bi bi-question-circle text-primary"></i> Is the billing real?</h6>
+        <p class="text-muted small mb-0">No this project is a course assignment. "Upgrading" instantly unlocks features for the current account without any payment gateway. The implementation models how a real SaaS would gate features behind a plan.</p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card-box h-100">
+        <h6 class="fw-bold"><i class="bi bi-arrow-repeat text-primary"></i> Can I switch plans anytime?</h6>
+        <p class="text-muted small mb-0">Yes. Each Subscription row has a <code>plan_type</code> field; the subscribe view updates it directly. Existing data is never deleted when you change plans.</p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card-box h-100">
+        <h6 class="fw-bold"><i class="bi bi-shield-check text-primary"></i> What if I go over a limit?</h6>
+        <p class="text-muted small mb-0">You won't lose data, but you can't add new projects or papers beyond the cap. The relevant view redirects you here with a friendly upgrade prompt.</p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card-box h-100">
+        <h6 class="fw-bold"><i class="bi bi-magic text-primary"></i> Which features need a paid plan?</h6>
+        <p class="text-muted small mb-0">All AI features (paper summary, citation suggestions, project synthesis, summary refinement), the four non-APA citation styles, and visual comparison tables. Everything else is on Free.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
