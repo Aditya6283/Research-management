@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Subscribers{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <span class="badge bg-primary mb-2">Admin</span>
+      <h1 class="h2 fw-bold mb-1">Manage Subscribers</h1>
+      <p class="text-muted mb-0">
+        <strong>{{ paginator.count|default:0 }}</strong> subscriber{{ paginator.count|pluralize }} in the system
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'admin:index' %}" class="btn btn-light">
+        <i class="bi bi-shield-lock"></i> Django Admin
+      </a>
+      <a href="{% url 'subscriber_add' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Subscriber
+      </a>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <form method="get" class="search-pill mb-4">
+    <i class="bi bi-search text-muted"></i>
+    <input type="search" name="search" value="{{ search_query }}"
+           placeholder="Search by username, first name, or surname..."
+           aria-label="Search subscribers">
+    {% if search_query %}
+      <a href="{% url 'manage_subscribers' %}" class="btn btn-light btn-sm">Clear</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  </form>
+
+  <!-- Subscriber list -->
+  <div class="card-box p-0 overflow-hidden">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th class="ps-4">User</th>
+          <th>Email</th>
+          <th>Mobile</th>
+          <th>Joined</th>
+          <th class="text-end pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td class="ps-4">
+              <div class="d-flex align-items-center gap-2">
+                <div class="icon-box primary" style="width: 36px; height: 36px;">
+                  <i class="bi bi-person-fill" style="font-size: 18px;"></i>
+                </div>
+                <div>
+                  <div class="fw-semibold">{{ u.firstname }} {{ u.surname|default:"" }}</div>
+                  <small class="text-muted">@{{ u.user.username }}{% if u.user.is_superuser %} <span class="badge bg-warning ms-1">Admin</span>{% endif %}</small>
+                </div>
+              </div>
+            </td>
+            <td><small>{{ u.user.email|default:"-" }}</small></td>
+            <td><small>{{ u.mobile|default:"-" }}</small></td>
+            <td><small class="text-muted">{{ u.user.date_joined|date:"j M Y" }}</small></td>
+            <td class="text-end pe-4">
+              <a href="{% url 'subscriber_edit' u.pk %}" class="btn btn-sm btn-light" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <a href="{% url 'subscriber_delete' u.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                <i class="bi bi-trash"></i>
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-5">
+              <i class="bi bi-people" style="font-size: 2rem; opacity: 0.3;"></i>
+              <p class="mt-2 mb-0">No subscribers match your search.</p>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <nav aria-label="Subscriber pagination" class="mt-4">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+          </li>
+        {% endif %}
+        <li class="page-item active">
+          <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+</div>
+{% endblock %}
