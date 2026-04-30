@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Settings ResearchDoc{% endblock %}
+
+{% block extra_head %}
+<style>
+  body { background: var(--rd-bg); }
+  .card-box {
+    background: var(--rd-card);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .nav-pills .nav-link.active {
+    background: var(--rd-primary, #0d6efd);
+    color: #fff;
+  }
+  .nav-pills .nav-link {
+    color: var(--rd-text);
+    border-radius: 10px;
+    margin-bottom: 4px;
+  }
+  .theme-card {
+    border: 2px solid transparent;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: var(--rd-card-alt, #f8fafc);
+  }
+  .theme-card:hover { transform: translateY(-2px); }
+  .theme-card input[type=radio] { display: none; }
+  .theme-card.selected { border-color: var(--rd-primary, #0d6efd); }
+  .theme-preview {
+    height: 80px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .theme-preview.light { background: linear-gradient(135deg, #f5f6f8, #ffffff); color: #0d6efd; }
+  .theme-preview.dark { background: linear-gradient(135deg, #1e1f25, #2c2e36); color: #91b6ff; }
+  .theme-preview.auto { background: linear-gradient(135deg, #f5f6f8 50%, #1e1f25 50%); color: #fff; }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rd-border, #e5e7eb);
+  }
+  .info-row:last-child { border-bottom: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+      <li class="breadcrumb-item active">Settings</li>
+    </ol>
+  </nav>
+
+  <h1 class="fw-bold h2 mb-1">Settings</h1>
+  <p class="text-secondary">Manage your profile, appearance, and account preferences.</p>
+
+  <div class="row mt-4">
+    <!-- Side nav -->
+    <div class="col-md-3 mb-3">
+      <div class="card-box">
+        <div class="nav flex-column nav-pills" role="tablist" aria-orientation="vertical">
+          <button class="nav-link active text-start" data-bs-toggle="pill" data-bs-target="#tab-profile" type="button" role="tab">
+            <i class="bi bi-person-circle me-2"></i> Profile
+          </button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-appearance" type="button" role="tab">
+            <i class="bi bi-palette me-2"></i> Appearance
+          </button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-security" type="button" role="tab">
+            <i class="bi bi-shield-lock me-2"></i> Security
+          </button>
+          <button class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#tab-account" type="button" role="tab">
+            <i class="bi bi-info-circle me-2"></i> Account
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab panes -->
+    <div class="col-md-9">
+      <div class="tab-content">
+
+        <!-- Profile -->
+        <div class="tab-pane fade show active" id="tab-profile" role="tabpanel">
+          <div class="card-box">
+            <h5 class="mb-3">Profile information</h5>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="section" value="profile">
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ profile_form.firstname.id_for_label }}">First name</label>
+                  {{ profile_form.firstname }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ profile_form.surname.id_for_label }}">Last name</label>
+                  {{ profile_form.surname }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ profile_form.username.id_for_label }}">Username</label>
+                  {{ profile_form.username }}
+                  {% if profile_form.username.errors %}<div class="text-danger small">{{ profile_form.username.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ profile_form.email.id_for_label }}">Email</label>
+                  {{ profile_form.email }}
+                  {% if profile_form.email.errors %}<div class="text-danger small">{{ profile_form.email.errors.0 }}</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ profile_form.mobile.id_for_label }}">Mobile</label>
+                  {{ profile_form.mobile }}
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="{{ profile_form.bio.id_for_label }}">Bio</label>
+                  {{ profile_form.bio }}
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary mt-3">Save profile</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="tab-pane fade" id="tab-appearance" role="tabpanel">
+          <div class="card-box">
+            <h5 class="mb-3">Appearance</h5>
+            <p class="text-muted small">Pick how ResearchDoc looks. Your preference is saved across sessions.</p>
+            <form method="post" id="theme-form">
+              {% csrf_token %}
+              <input type="hidden" name="section" value="preferences">
+
+              <div class="row g-3">
+                {% for value, label in preferences_form.theme.field.choices %}
+                  <div class="col-md-4">
+                    <label class="theme-card {% if current_theme == value %}selected{% endif %}" data-theme="{{ value }}">
+                      <input type="radio" name="theme" value="{{ value }}"
+                             {% if current_theme == value %}checked{% endif %}>
+                      <div class="theme-preview {{ value }}">
+                        {% if value == 'light' %}<i class="bi bi-sun fs-2"></i>
+                        {% elif value == 'dark' %}<i class="bi bi-moon-stars fs-2"></i>
+                        {% else %}<i class="bi bi-circle-half fs-2"></i>{% endif %}
+                      </div>
+                      <strong>{{ label }}</strong>
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+
+              <button type="submit" class="btn btn-primary mt-3">Save appearance</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="tab-pane fade" id="tab-security" role="tabpanel">
+          <div class="card-box">
+            <h5 class="mb-3">Security</h5>
+            <div class="info-row">
+              <div>
+                <strong>Password</strong>
+                <div class="text-muted small">Change the password you use to sign in.</div>
+              </div>
+              <a href="{% url 'account_change_password' %}" class="btn btn-outline-primary btn-sm align-self-center">Change password</a>
+            </div>
+            <div class="info-row">
+              <div>
+                <strong>Email addresses</strong>
+                <div class="text-muted small">Manage and verify your registered email addresses.</div>
+              </div>
+              <a href="{% url 'account_email' %}" class="btn btn-outline-primary btn-sm align-self-center">Manage emails</a>
+            </div>
+            <div class="info-row">
+              <div>
+                <strong>Sign out</strong>
+                <div class="text-muted small">End the current session on this device.</div>
+              </div>
+              <form method="post" action="{% url 'account_logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm">Sign out</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account -->
+        <div class="tab-pane fade" id="tab-account" role="tabpanel">
+          <div class="card-box mb-3">
+            <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+              <div>
+                <span class="badge {% if subscription.plan_type == 'pro' %}bg-primary{% elif subscription.plan_type == 'plus' %}bg-success{% else %}bg-light text-dark{% endif %} mb-2">
+                  {{ plan.name }} plan
+                </span>
+                <h5 class="mb-1 fw-bold">{{ plan.price_label }}<small class="text-muted"> / month</small></h5>
+                <p class="text-muted small mb-0">{{ plan.tagline }}</p>
+              </div>
+              <a href="{% url 'pricing' %}" class="btn btn-{% if subscription.plan_type == 'pro' %}light{% else %}ai{% endif %} btn-sm">
+                {% if subscription.plan_type == 'pro' %}Manage{% else %}Upgrade →{% endif %}
+              </a>
+            </div>
+            <div class="info-row">
+              <span>Projects used</span>
+              <strong>
+                {{ projects_count }}{% if subscription.max_projects < 999 %} / {{ subscription.max_projects }}{% else %} (unlimited){% endif %}
+              </strong>
+            </div>
+            <div class="info-row">
+              <span>Papers per project limit</span>
+              <strong>
+                {% if subscription.max_papers_per_project < 999 %}{{ subscription.max_papers_per_project }}{% else %}Unlimited{% endif %}
+              </strong>
+            </div>
+            <div class="info-row">
+              <span>AI features</span>
+              <strong>
+                {% if subscription.plan_type == 'free' %}Locked{% elif subscription.plan_type == 'plus' %}Paper summarisation + citations{% else %}Everything{% endif %}
+              </strong>
+            </div>
+            {% if subscription.renewed_at %}
+              <div class="info-row">
+                <span>Plan started</span>
+                <strong>{{ subscription.renewed_at|date:"j M Y" }}</strong>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="card-box">
+            <h6 class="mb-3 fw-bold">Account details</h6>
+            <div class="info-row">
+              <span>Member since</span>
+              <strong>{{ user.date_joined|date:"j M Y" }}</strong>
+            </div>
+            <div class="info-row">
+              <span>Last login</span>
+              <strong>{{ user.last_login|timesince }} ago</strong>
+            </div>
+            <div class="info-row">
+              <span>Account ID</span>
+              <strong class="text-muted small">#{{ user.id }}</strong>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Visual selection state for the theme cards + live preview
+  document.querySelectorAll('.theme-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      card.querySelector('input[type=radio]').checked = true;
+      // Live preview
+      const t = card.dataset.theme;
+      if (window.RDApplyTheme) window.RDApplyTheme(t);
+    });
+  });
+</script>
+{% endblock %}
