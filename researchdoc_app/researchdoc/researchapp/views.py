@@ -1303,3 +1303,58 @@ def subscribe(request):
             f"are now unlocked.",
         )
     return redirect('dashboard')
+
+
+# ====
+# User Settings profile + preferences (theme)
+# ====
+
+@login_required
+def settings_view(request):
+    """
+    Account settings page: profile (username, name, email, mobile, bio),
+    appearance (light/dark/auto), and a link to password change.
+    """
+    user_detail, _ = UserDetail.objects.get_or_create(user=request.user)
+    current_theme = request.COOKIES.get('rd_theme', 'light')
+
+    if request.method == 'POST':
+        section = request.POST.get('section', 'profile')
+        if section == 'profile':
+            profile_form = UserSettingsForm(request.POST, instance=user_detail)
+            preferences_form = PreferencesForm(initial={'theme': current_theme})
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, "Profile updated.")
+                return redirect('settings')
+        elif section == 'preferences':
+            profile_form = UserSettingsForm(instance=user_detail)
+            preferences_form = PreferencesForm(request.POST)
+            if preferences_form.is_valid():
+                response = redirect('settings')
+                theme = preferences_form.cleaned_data['theme']
+                # 1 year persistence
+                response.set_cookie(
+                    'rd_theme', theme,
+                    max_age=60 * 60 * 24 * 365,
+                    samesite='Lax',
+                )
+                messages.success(request, "Appearance saved.")
+                return response
+        else:
+            profile_form = UserSettingsForm(instance=user_detail)
+            preferences_form = PreferencesForm(initial={'theme': current_theme})
+    else:
+        profile_form = UserSettingsForm(instance=user_detail)
+        preferences_form = PreferencesForm(initial={'theme': current_theme})
+
+    sub = get_active_subscription(request.user)
+    return render(request, 'settings.html', {
+        'profile_form': profile_form,
+        'preferences_form': preferences_form,
+        'current_theme': current_theme,
+        'projects_count': ResearchProject.objects.filter(owner=request.user).count(),
+        'subscriptions': Subscription.objects.filter(owner=request.user),
+        'subscription': sub,
+        'plan': sub.plan,
+    })
