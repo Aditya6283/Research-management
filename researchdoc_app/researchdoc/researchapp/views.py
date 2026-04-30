@@ -1358,3 +1358,99 @@ def settings_view(request):
         'subscription': sub,
         'plan': sub.plan,
     })
+
+
+# Subscriber management the admin-side CRUD for users
+# Same shape as the project CRUD above but for User + UserDetail. Only
+# superusers can hit these views (the dispatch() check at the bottom of
+# each class redirects everyone else back to the dashboard).
+
+class ManageSubscribersView(LoginRequiredMixin, ListView):
+    """List every UserDetail row. Search + pagination included."""
+    model = UserDetail
+    template_name = 'manage_subscribers.html'
+    context_object_name = 'users'
+    paginate_by = 5
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related('user')
+        search_query = self.request.GET.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search_query)
+                | Q(firstname__icontains=search_query)
+                | Q(surname__icontains=search_query)
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('search', '')
+        return context
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, "Admin access only.")
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SubscriberCreateView(LoginRequiredMixin, CreateView):
+    """Admin-side: create a new subscriber (creates the User + UserDetail)."""
+    model = UserDetail
+    form_class = UserDetailFullForm
+    template_name = 'subscriber_form.html'
+    success_url = reverse_lazy('manage_subscribers')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Subscriber created.")
+        return super().form_valid(form)
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SubscriberUpdateView(LoginRequiredMixin, UpdateView):
+    """Edit an existing subscriber."""
+    model = UserDetail
+    form_class = UserDetailFullForm
+    template_name = 'subscriber_form.html'
+    success_url = reverse_lazy('manage_subscribers')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Subscriber updated.")
+        return super().form_valid(form)
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SubscriberDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    Delete a subscriber. Cascade-deletes the linked User as well, since
+    UserDetail has a OneToOne -> User relationship.
+
+    Django 4+: DeleteView no longer calls a delete() hook we override
+    form_valid() instead. Without this fix the User row would be
+    orphaned (only the UserDetail would be removed).
+    """
+    model = UserDetail
+    template_name = 'subscriber_confirm_delete.html'
+    success_url = reverse_lazy('manage_subscribers')
+
+    def form_valid(self, form):
+        user_detail = self.get_object()
+        username = user_detail.user.username
+        # Deleting the User cascades to UserDetail, projects, subscriptions
+        user_detail.user.delete()
+        messages.success(self.request, f"Subscriber '{username}' deleted.")
+        return redirect(self.success_url)
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
