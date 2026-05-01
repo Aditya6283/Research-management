@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit{% else %}Add{% endif %} Subscriber{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'manage_subscribers' %}">Manage Subscribers</a></li>
+      <li class="breadcrumb-item active">{% if object %}Edit{% else %}Add{% endif %}</li>
+    </ol>
+  </nav>
+
+  <h1 class="h2 fw-bold mb-1">{% if object %}Edit{% else %}Add{% endif %} Subscriber</h1>
+  <p class="text-muted mb-4">
+    {% if object %}
+      Update <strong>@{{ object.user.username }}</strong>'s account details.
+    {% else %}
+      Create a new user account with a profile and a free Subscription.
+    {% endif %}
+  </p>
+
+  <form method="post" class="card-box col-lg-8">
+    {% csrf_token %}
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+        {{ form.username }}
+        {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.firstname.id_for_label }}">First Name</label>
+        {{ form.firstname }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.surname.id_for_label }}">Surname</label>
+        {{ form.surname }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.mobile.id_for_label }}">Mobile</label>
+        {{ form.mobile }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+        <small class="text-muted">{{ form.password.help_text }}</small>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="{{ form.bio.id_for_label }}">Bio</label>
+        {{ form.bio }}
+      </div>
+    </div>
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger mt-3">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <div class="d-flex gap-2 mt-4">
+      <a href="{% url 'manage_subscribers' %}" class="btn btn-light flex-grow-1">Cancel</a>
+      <button type="submit" class="btn btn-primary flex-grow-1">
+        <i class="bi bi-check-lg"></i> {% if object %}Save Changes{% else %}Create Subscriber{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
