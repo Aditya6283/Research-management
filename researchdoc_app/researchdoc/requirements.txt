@@ -18,3 +18,9 @@ pydantic>=2.0.0
 python-dotenv>=1.0.0
 markdown>=3.5
 django-htmx>=1.27.0
+
+# Auth & social login (Applied Class 8)
+django-allauth>=0.61.0
+requests>=2.31.0
+PyJWT>=2.8.0
+cryptography>=42.0.0
