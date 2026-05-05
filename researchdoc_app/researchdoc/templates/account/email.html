@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Email Addresses ResearchDoc{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'settings' %}">Settings</a></li>
+      <li class="breadcrumb-item active">Email addresses</li>
+    </ol>
+  </nav>
+
+  <div class="mx-auto" style="max-width: 720px;">
+    <h1 class="h2 fw-bold mb-1">Email addresses</h1>
+    <p class="text-muted mb-4">
+      Manage the email addresses on your account. The primary email is used for
+      password resets and account notifications.
+    </p>
+
+    {% if emailaddresses %}
+      <form method="post" action="{% url 'account_email' %}" class="card-box mb-4">
+        {% csrf_token %}
+
+        <h6 class="mb-3 fw-bold">Linked addresses</h6>
+
+        <div class="list-group list-group-flush mb-3">
+          {% for emailaddress in emailaddresses %}
+            <label class="list-group-item d-flex align-items-center gap-3 py-3"
+                   style="background: transparent; border-color: var(--rd-border); cursor: pointer;">
+              <input type="radio" name="email"
+                     value="{{ emailaddress.email }}"
+                     class="form-check-input mt-0"
+                     {% if emailaddress.primary %}checked{% endif %}>
+
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                  <strong>{{ emailaddress.email }}</strong>
+                  {% if emailaddress.verified %}
+                    <span class="badge bg-success">
+                      <i class="bi bi-check-circle-fill"></i> Verified
+                    </span>
+                  {% else %}
+                    <span class="badge bg-warning">
+                      <i class="bi bi-exclamation-triangle-fill"></i> Unverified
+                    </span>
+                  {% endif %}
+                  {% if emailaddress.primary %}
+                    <span class="badge bg-primary">Primary</span>
+                  {% endif %}
+                </div>
+                {% if not emailaddress.verified %}
+                  <small class="text-muted">
+                    A verification email has been sent. Check your inbox or
+                    click <em>Re-send Verification</em> below.
+                  </small>
+                {% endif %}
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="submit" name="action_primary" class="btn btn-primary">
+            <i class="bi bi-star-fill"></i> Make Primary
+          </button>
+          <button type="submit" name="action_send" class="btn btn-light">
+            <i class="bi bi-envelope-arrow-up"></i> Re-send Verification
+          </button>
+          <button type="submit" name="action_remove" class="btn btn-outline-danger"
+                  onclick="return confirm('Remove the selected email from your account?');">
+            <i class="bi bi-trash"></i> Remove
+          </button>
+        </div>
+      </form>
+    {% else %}
+      <div class="card-box mb-4 text-center py-5">
+        <i class="bi bi-envelope-x text-muted" style="font-size: 2.5rem;"></i>
+        <h6 class="fw-bold mt-3 mb-1">No email addresses on file</h6>
+        <p class="text-muted mb-0">Add one below so you can sign in and receive notifications.</p>
+      </div>
+    {% endif %}
+
+    {% if can_add_email %}
+      <form method="post" action="{% url 'account_email' %}" class="card-box">
+        {% csrf_token %}
+
+        <h6 class="mb-3 fw-bold">
+          <i class="bi bi-plus-circle"></i> Add a new email
+        </h6>
+
+        <div class="mb-3">
+          <label class="form-label" for="id_email">Email address</label>
+          <input type="email" name="email" id="id_email"
+                 class="form-control" required
+                 placeholder="name@university.edu"
+                 value="{{ form.email.value|default:'' }}">
+          {% if form.email.errors %}
+            <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+          {% endif %}
+          <small class="text-muted">
+            We'll send a verification link to this address before it can be used.
+          </small>
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="{% url 'settings' %}" class="btn btn-light">Cancel</a>
+          <button type="submit" name="action_add" class="btn btn-primary">
+            <i class="bi bi-envelope-plus"></i> Add Email
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
