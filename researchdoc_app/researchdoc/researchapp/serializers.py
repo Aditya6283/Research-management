@@ -75,3 +75,95 @@ class ResearchSummarySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'author', 'created_at', 'updated_at',
                             'citations', 'citation_count']
+
+
+class ComparisonColumnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComparisonColumn
+        fields = ['id', 'name', 'order']
+        read_only_fields = ['id']
+
+
+class ComparisonRowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComparisonRow
+        fields = ['id', 'label', 'order']
+        read_only_fields = ['id']
+
+
+class ComparisonCellSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComparisonCell
+        fields = ['id', 'row', 'column', 'value']
+        read_only_fields = ['id']
+
+
+class ComparisonTableSerializer(serializers.ModelSerializer):
+    """A whole comparison spreadsheet in one JSON object.
+
+    Rebuilding the table from its parts (columns, rows, cells) on the
+    frontend means we hand it over as one nested document rather than
+    making the client do four separate fetches.
+    """
+    columns = ComparisonColumnSerializer(many=True, read_only=True)
+    rows = ComparisonRowSerializer(many=True, read_only=True)
+    cells = ComparisonCellSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ComparisonTable
+        fields = [
+            'id', 'project', 'title',
+            'columns', 'rows', 'cells',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at',
+                            'columns', 'rows', 'cells']
+
+
+class ResearchProjectSerializer(serializers.ModelSerializer):
+    """Project metadata plus counts (resources / summaries / comparisons).
+
+    We deliberately *don't* nest the full child lists here for a user
+    with 50 projects that would mean a huge payload. The client asks
+    for `/api/resources/?project=<id>` separately when it actually
+    needs the children.
+    """
+    resource_count = serializers.IntegerField(
+        source='resources.count', read_only=True,
+    )
+    summary_count = serializers.IntegerField(
+        source='summaries.count', read_only=True,
+    )
+    comparison_count = serializers.IntegerField(
+        source='comparisons.count', read_only=True,
+    )
+    owner_username = serializers.CharField(
+        source='owner.username', read_only=True,
+    )
+
+    class Meta:
+        model = ResearchProject
+        fields = [
+            'id', 'title', 'description', 'owner', 'owner_username',
+            'subscription', 'is_archived',
+            'resource_count', 'summary_count', 'comparison_count',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'owner', 'owner_username',
+                            'resource_count', 'summary_count',
+                            'comparison_count', 'created_at', 'updated_at']
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    """SaaS subscription (read-only for the API user)."""
+    plan_display = serializers.CharField(
+        source='get_plan_type_display', read_only=True,
+    )
+
+    class Meta:
+        model = Subscription
+        fields = [
+            'id', 'name', 'plan_type', 'plan_display',
+            'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = '__all__'.split()  # entire serializer is read-only
