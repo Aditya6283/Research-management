@@ -62,3 +62,47 @@ class ResourceViewSet(OwnedResourceMixin, viewsets.ModelViewSet):
         if project_id and project_id.isdigit():
             qs = qs.filter(project_id=int(project_id))
         return qs
+
+
+class ResearchSummaryViewSet(OwnedResourceMixin, viewsets.ModelViewSet):
+    """CRUD on summaries. The author is set from the logged-in user on create."""
+    queryset = ResearchSummary.objects.all()
+    serializer_class = ResearchSummarySerializer
+
+    def get_owner_filter(self):
+        return {'project__owner': self.request.user}
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+
+class CitationViewSet(OwnedResourceMixin, viewsets.ModelViewSet):
+    """CRUD on citations. Ownership chain: citation -> summary -> project -> owner."""
+    queryset = Citation.objects.all()
+    serializer_class = CitationSerializer
+
+    def get_owner_filter(self):
+        return {'summary__project__owner': self.request.user}
+
+
+class ComparisonTableViewSet(OwnedResourceMixin, viewsets.ModelViewSet):
+    """CRUD on the comparison-table header. Rows/columns are nested read-only."""
+    queryset = ComparisonTable.objects.all()
+    serializer_class = ComparisonTableSerializer
+
+    def get_owner_filter(self):
+        return {'project__owner': self.request.user}
+
+
+class SubscriptionViewSet(OwnedResourceMixin, viewsets.ReadOnlyModelViewSet):
+    """Read-only the API user can see their own plan but not change it via the API.
+
+    Plan changes go through the in-app /subscribe/ form so we can run
+    extra checks (and one day, billing webhooks) before flipping the
+    plan_type column.
+    """
+    queryset = Subscription.objects.all()
+    serializer_class = SubscriptionSerializer
+
+    def get_owner_filter(self):
+        return {'owner': self.request.user}
