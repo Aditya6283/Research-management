@@ -19,6 +19,9 @@ python-dotenv>=1.0.0
 markdown>=3.5
 django-htmx>=1.27.0
 
+# Sanitise AI/markdown output before it is marked safe for rendering
+bleach>=6.1.0
+
 # Auth & social login (Applied Class 8)
 django-allauth>=0.61.0
 requests>=2.31.0
