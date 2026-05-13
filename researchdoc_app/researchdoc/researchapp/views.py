@@ -41,12 +41,10 @@ from .forms import (
     UserSettingsForm, PreferencesForm,
 )
 
-# The chatbot LLM returns Markdown; we convert it to HTML before rendering
-# so bullet lists and **bold** look right. mark_safe tells Django the
-# string is already safe HTML (the LLM output is from our own prompts so
-# we trust it same call the labs use).
-import markdown as _md_lib
-from django.utils.safestring import mark_safe
+# The chatbot LLM returns Markdown; render_markdown converts it to HTML and
+# sanitises it (bleach allow-list) before marking it safe for the template,
+# so a prompt-injected <script> in model output can't reach the page.
+from .textutils import render_markdown
 from django.http import HttpResponse
 
 
@@ -1133,13 +1131,13 @@ def research_chat_init(request):
 
     llm = _build_llm(temperature=0.7)
     if llm is None:
-        bot_message = mark_safe(_md_lib.markdown(
+        bot_message = render_markdown(
             "Hi! I'm your **Research Coach**. I've read your project's "
             "resources and summaries. What would you like to dig into first "
             "the literature gaps, the methodology, or the framing of your "
             "key claims?\n\n*(Note: running in fallback mode no API key "
             "configured.)*"
-        ))
+        )
     else:
         try:
             from langchain_core.prompts import ChatPromptTemplate
@@ -1149,9 +1147,9 @@ def research_chat_init(request):
             ])
             chain = prompt | llm
             response = chain.invoke({})
-            bot_message = mark_safe(_md_lib.markdown(response.content))
+            bot_message = render_markdown(response.content)
         except Exception as e:
-            bot_message = mark_safe(f"Sorry, couldn't reach the LLM: {e}")
+            bot_message = render_markdown(f"Sorry, couldn't reach the LLM: {e}")
 
     # Persist initial system + assistant turn in session history
     request.session['chat_history'] = [
@@ -1214,7 +1212,7 @@ def research_chat(request):
 
     return render(request, 'partials/_chat_exchange.html', {
         'user_message': user_message,
-        'bot_message': mark_safe(_md_lib.markdown(bot_reply)),
+        'bot_message': render_markdown(bot_reply),
     })
 
 
