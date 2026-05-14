@@ -55,28 +55,25 @@ from django.http import HttpResponse
 # key at all, which makes every AI view drop to its fallback path.
 
 def _build_llm(temperature=0.3, max_tokens=None):
-    """Return a ready-to-use LangChain chat model, or None if no key is set."""
-    from django.conf import settings
-    model = (settings.LLM_MODEL or '').lower()
-    has_openai = bool(settings.OPENAI_API_KEY)
+    """Return a ready-to-use LangChain chat model, or None if no key is set.
 
-    use_openai = (
-        model.startswith(('gpt', 'o1', 'o3', 'o4')) and has_openai
-        or (has_openai)
-    )
+    Only OpenAI is wired up. With no API key configured this returns None,
+    which makes every AI view drop to its deterministic offline fallback.
+    """
+    from django.conf import settings
+    if not settings.OPENAI_API_KEY:
+        return None
 
     kwargs = {'temperature': temperature}
     if max_tokens:
         kwargs['max_tokens'] = max_tokens
 
-    if use_openai:
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            model=settings.LLM_MODEL or 'gpt-5.4-mini',
-            **kwargs,
-        )
-    return None
+    from langchain_openai import ChatOpenAI
+    return ChatOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        model=settings.LLM_MODEL or 'gpt-4o-mini',
+        **kwargs,
+    )
 
 
 # Plan-based feature gating
