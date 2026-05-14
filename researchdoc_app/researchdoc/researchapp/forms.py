@@ -10,6 +10,7 @@ model's columns saves a lot of typing. Each form here either:
 """
 from django import forms
 from django.contrib.auth.models import User
+from django.utils.crypto import get_random_string
 from .models import (
     UserDetail, ResearchProject, Resource,
     ResearchSummary, ComparisonTable,
@@ -163,7 +164,7 @@ class UserDetailFullForm(forms.ModelForm):
             # Create new user
             user = User.objects.create_user(
                 username=username, email=email,
-                password=password or User.objects.make_random_password(),
+                password=password or get_random_string(12),
             )
             user_detail.user = user
 
