@@ -11,5 +11,10 @@ class ForceHTTPSScheme:
         self.get_response = get_response
 
     def __call__(self, request):
-        request.META['wsgi.url_scheme'] = 'https'
+        # Locally (DEBUG / runserver) nothing terminates TLS in front of us,
+        # so forcing https would break absolute URLs and the OAuth callback.
+        # Only rewrite the scheme in production, where Nginx really is ahead.
+        from django.conf import settings
+        if not settings.DEBUG:
+            request.META['wsgi.url_scheme'] = 'https'
         return self.get_response(request)
