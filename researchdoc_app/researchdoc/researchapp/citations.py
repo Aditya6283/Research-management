@@ -198,3 +198,51 @@ def short_citation(resource):
     else:
         head = f"{surnames[0]} et al."
     return f"{head} ({year})"
+
+
+def _bibtex_key(resource):
+    """A reasonably unique citation key, e.g. 'vaswani2017attention'."""
+    authors = _split_authors(getattr(resource, 'authors', ''))
+    if authors:
+        first = authors[0].split(',')[0] if ',' in authors[0] else authors[0].split()[-1]
+    else:
+        first = 'ref'
+    year = getattr(resource, 'year', '') or 'nd'
+    word = ''
+    for w in (resource.title or '').split():
+        cleaned = ''.join(ch for ch in w if ch.isalnum())
+        if len(cleaned) > 3:
+            word = cleaned
+            break
+    key = f"{first}{year}{word}".lower()
+    return ''.join(ch for ch in key if ch.isalnum()) or 'ref'
+
+
+def to_bibtex(resource):
+    """Render one Resource as a BibTeX entry.
+
+    Papers become @article, saved links become @online. Missing fields are
+    skipped so we never emit empty 'volume = {}' lines.
+    """
+    authors = _split_authors(getattr(resource, 'authors', ''))
+    is_paper = getattr(resource, 'resource_type', '') == 'paper'
+    entry_type = 'article' if is_paper else 'online'
+
+    fields = []
+    if authors:
+        fields.append(('author', ' and '.join(authors)))
+    if resource.title:
+        fields.append(('title', resource.title))
+    venue = getattr(resource, 'venue', '')
+    if venue:
+        fields.append(('journal' if is_paper else 'howpublished', venue))
+    for attr, bib in (
+        ('year', 'year'), ('volume', 'volume'), ('issue', 'number'),
+        ('pages', 'pages'), ('doi', 'doi'), ('url', 'url'),
+    ):
+        val = getattr(resource, attr, '')
+        if val:
+            fields.append((bib, val))
+
+    body = ',\n'.join(f"  {k} = {{{v}}}" for k, v in fields)
+    return f"@{entry_type}{{{_bibtex_key(resource)},\n{body}\n}}"
