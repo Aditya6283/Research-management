@@ -479,6 +479,35 @@ def citation_delete(request, pk):
     return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
 
 
+@login_required
+def summary_export_citations(request, summary_pk):
+    """Download a summary's references as a BibTeX (.bib) or plain-text file.
+
+    Lets a user pull a whole reference list straight into Zotero/Overleaf,
+    which is the main thing a reference manager is expected to do.
+    """
+    from .citations import to_bibtex, format_citation
+    summary = get_object_or_404(
+        ResearchSummary, pk=summary_pk, project__owner=request.user,
+    )
+    citations = summary.citations.select_related('resource').all()
+
+    if request.GET.get('format') == 'text':
+        body = '\n\n'.join(
+            c.citation_text or format_citation(c.resource, c.style)
+            for c in citations
+        )
+        ext, ctype = 'txt', 'text/plain'
+    else:
+        body = '\n\n'.join(to_bibtex(c.resource) for c in citations)
+        ext, ctype = 'bib', 'application/x-bibtex'
+
+    stem = (summary.title or 'references')[:40].strip().replace(' ', '_')
+    response = HttpResponse(body, content_type=f'{ctype}; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{stem}.{ext}"'
+    return response
+
+
 # ====
 # Comparison tables the spreadsheet-style "compare three tools" view
 # ====
