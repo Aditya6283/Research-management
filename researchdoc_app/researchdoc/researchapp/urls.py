@@ -59,6 +59,7 @@ urlpatterns = [
     path('citations/<int:summary_pk>/add/', views.citation_add, name='citation_add'),
     path('citations/<int:pk>/delete/', views.citation_delete, name='citation_delete'),
     path('citations/<int:pk>/restyle/', views.citation_restyle, name='citation_restyle'),
+    path('summary/<int:summary_pk>/export/', views.summary_export_citations, name='summary_export'),
 
     # Comparison tables
     path('projects/<int:project_pk>/comparison/add/', views.comparison_create, name='comparison_create'),
