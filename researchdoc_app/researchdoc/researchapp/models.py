@@ -264,6 +264,21 @@ class Resource(models.Model):
 
     # Used for full-text search (rubric 3.9)
     extracted_text = models.TextField(blank=True)
+
+    # Lightweight organisation: star a key paper and track reading progress.
+    UNREAD = 'unread'
+    READING = 'reading'
+    READ = 'read'
+    READING_STATUS_CHOICES = [
+        (UNREAD, 'To read'),
+        (READING, 'Reading'),
+        (READ, 'Read'),
+    ]
+    is_favorite = models.BooleanField(default=False)
+    reading_status = models.CharField(
+        max_length=10, choices=READING_STATUS_CHOICES, default=UNREAD,
+    )
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
