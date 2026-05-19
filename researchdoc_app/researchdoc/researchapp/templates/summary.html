@@ -118,7 +118,23 @@
 
         {% if summary %}
           <div class="card-box mb-3">
-            <h5 class="mb-3">Citations</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Citations</h5>
+              {% if citations %}
+              <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-light" id="copy-cites-btn" title="Copy all references">
+                  <i class="bi bi-clipboard"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Export references">
+                  <i class="bi bi-download"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="{% url 'summary_export' summary.pk %}"><i class="bi bi-filetype-bib me-2"></i>BibTeX (.bib)</a></li>
+                  <li><a class="dropdown-item" href="{% url 'summary_export' summary.pk %}?format=text"><i class="bi bi-filetype-txt me-2"></i>Plain text (.txt)</a></li>
+                </ul>
+              </div>
+              {% endif %}
+            </div>
             {% for c in citations %}
               <div class="citation-box mb-2">
                 <div class="d-flex justify-content-between align-items-start">
@@ -350,6 +366,24 @@
       }
       projSummarizeBtn.disabled = false;
       projSummarizeBtn.innerHTML = '<i class="bi bi-diagram-3"></i> Summarise Entire Project';
+    });
+  }
+
+  // Copy all rendered references to the clipboard
+  const copyCitesBtn = document.getElementById('copy-cites-btn');
+  if (copyCitesBtn) {
+    copyCitesBtn.addEventListener('click', async () => {
+      const texts = Array.from(document.querySelectorAll('.citation-box .small'))
+        .map(el => el.textContent.trim()).filter(Boolean);
+      if (!texts.length) return;
+      try {
+        await navigator.clipboard.writeText(texts.join('\n\n'));
+        const orig = copyCitesBtn.innerHTML;
+        copyCitesBtn.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(() => { copyCitesBtn.innerHTML = orig; }, 1500);
+      } catch (e) {
+        alert('Could not copy: ' + e.message);
+      }
     });
   }
 </script>
