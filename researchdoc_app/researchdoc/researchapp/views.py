@@ -357,6 +357,36 @@ def resource_delete(request, pk):
     return redirect('project_detail', pk=project_pk)
 
 
+@login_required
+@require_POST
+def resource_toggle_favorite(request, pk):
+    """Star/unstar a resource. Returns JSON for the AJAX star button."""
+    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user)
+    resource.is_favorite = not resource.is_favorite
+    resource.save(update_fields=['is_favorite'])
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'is_favorite': resource.is_favorite})
+    return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
+
+
+@login_required
+@require_POST
+def resource_set_status(request, pk):
+    """Update a resource's reading status (to read / reading / read)."""
+    resource = get_object_or_404(Resource, pk=pk, project__owner=request.user)
+    status = request.POST.get('status')
+    if status in dict(Resource.READING_STATUS_CHOICES):
+        resource.reading_status = status
+        resource.save(update_fields=['reading_status'])
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'ok': True,
+            'reading_status': resource.reading_status,
+            'label': resource.get_reading_status_display(),
+        })
+    return redirect(request.META.get('HTTP_REFERER', '/researchdoc/dashboard/'))
+
+
 # ====
 # Research summaries with citations
 # ====
