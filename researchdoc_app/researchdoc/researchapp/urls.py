@@ -52,6 +52,8 @@ urlpatterns = [
     path('resources/upload/', views.resource_upload, name='resource_upload'),
     path('projects/<int:project_pk>/upload/', views.resource_upload, name='resource_upload_for_project'),
     path('resources/<int:pk>/delete/', views.resource_delete, name='resource_delete'),
+    path('resources/<int:pk>/favorite/', views.resource_toggle_favorite, name='resource_toggle_favorite'),
+    path('resources/<int:pk>/status/', views.resource_set_status, name='resource_set_status'),
 
     # Written summaries and the citations that live inside them
     path('summary/', views.summary_view, name='summary_blank'),
