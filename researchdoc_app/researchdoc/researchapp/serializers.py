@@ -37,6 +37,7 @@ class ResourceSerializer(serializers.ModelSerializer):
             'resource_type', 'resource_type_display',
             'file', 'url', 'file_size_display',
             'authors', 'year', 'venue', 'volume', 'issue', 'pages', 'doi',
+            'is_favorite', 'reading_status',
             'uploaded_at',
         ]
         read_only_fields = ['id', 'uploaded_at', 'file_size_display',
