@@ -132,8 +132,8 @@ class ResearchProjectAdmin(admin.ModelAdmin):
 
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
-    list_display = ('title', 'project', 'resource_type', 'uploaded_at')
-    list_filter = ('resource_type', 'uploaded_at')
+    list_display = ('title', 'project', 'resource_type', 'reading_status', 'is_favorite', 'uploaded_at')
+    list_filter = ('resource_type', 'reading_status', 'is_favorite', 'uploaded_at')
     search_fields = ('title', 'description')
     list_per_page = 25
 
