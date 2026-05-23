@@ -139,11 +139,25 @@ def dashboard(request):
     total_resources = Resource.objects.filter(
         project__owner=request.user,
     ).count()
+
+    # Citation-style breakdown that feeds the dashboard donut chart.
+    from django.db.models import Count
+    style_labels = dict(Citation.STYLE_CHOICES)
+    citation_breakdown = [
+        {'label': style_labels.get(row['style'], row['style']), 'count': row['n']}
+        for row in (
+            Citation.objects
+            .filter(summary__project__owner=request.user)
+            .values('style').annotate(n=Count('id')).order_by('-n')
+        )
+    ]
+
     sub = get_active_subscription(request.user)
     return render(request, 'dashboard.html', {
         'projects': projects,
         'total_citations': total_citations,
         'total_resources': total_resources,
+        'citation_breakdown': citation_breakdown,
         'subscription': sub,
         'plan': sub.plan,
         'project_pct': min(100, int(100 * projects.count() / max(1, sub.max_projects))),
