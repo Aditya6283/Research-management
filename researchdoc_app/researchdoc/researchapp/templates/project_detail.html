@@ -65,17 +65,31 @@
           <a href="{% url 'resource_upload_for_project' project.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-plus"></i> Add</a>
         </div>
         {% for r in resources %}
-          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-            <div>
-              <strong>{{ r.title }}</strong>
-              <div class="text-muted small">{{ r.get_resource_type_display }} · {{ r.file_size_display }}</div>
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom resource-row">
+            <div class="d-flex align-items-start gap-2">
+              <button type="button"
+                      class="btn btn-link p-0 fav-toggle {% if r.is_favorite %}text-warning{% else %}text-muted{% endif %}"
+                      data-url="{% url 'resource_toggle_favorite' r.pk %}"
+                      title="Toggle favourite" aria-label="Toggle favourite">
+                <i class="bi {% if r.is_favorite %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              </button>
+              <div>
+                <strong>{{ r.title }}</strong>
+                <div class="text-muted small">{{ r.get_resource_type_display }} · {{ r.file_size_display }}</div>
+              </div>
             </div>
-            <div>
-              {% if r.file %}<a href="{{ r.file.url }}" target="_blank" class="text-dark me-2"><i class="bi bi-eye"></i></a>{% endif %}
-              {% if r.url %}<a href="{{ r.url }}" target="_blank" class="text-dark me-2"><i class="bi bi-link-45deg"></i></a>{% endif %}
+            <div class="d-flex align-items-center gap-2">
+              <select class="form-select form-select-sm status-select w-auto"
+                      data-url="{% url 'resource_set_status' r.pk %}" aria-label="Reading status">
+                {% for code, label in r.READING_STATUS_CHOICES %}
+                  <option value="{{ code }}" {% if code == r.reading_status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if r.file %}<a href="{{ r.file.url }}" target="_blank" class="text-dark" title="Open file"><i class="bi bi-eye"></i></a>{% endif %}
+              {% if r.url %}<a href="{{ r.url }}" target="_blank" class="text-dark" title="Open link"><i class="bi bi-link-45deg"></i></a>{% endif %}
               <form method="post" action="{% url 'resource_delete' r.pk %}" class="d-inline" onsubmit="return confirm('Delete this resource?');">
                 {% csrf_token %}
-                <button class="btn btn-link text-dark p-0"><i class="bi bi-trash"></i></button>
+                <button class="btn btn-link text-dark p-0" title="Delete"><i class="bi bi-trash"></i></button>
               </form>
             </div>
           </div>
@@ -128,4 +142,43 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const RD_CSRF = '{{ csrf_token }}';
+
+  // Favourite star toggle
+  document.querySelectorAll('.fav-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        const res = await fetch(btn.dataset.url, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': RD_CSRF},
+        });
+        const data = await res.json();
+        if (data.ok) {
+          btn.querySelector('i').className = 'bi ' + (data.is_favorite ? 'bi-star-fill' : 'bi-star');
+          btn.classList.toggle('text-warning', data.is_favorite);
+          btn.classList.toggle('text-muted', !data.is_favorite);
+        }
+      } catch (e) { /* leave UI unchanged on error */ }
+    });
+  });
+
+  // Reading-status change
+  document.querySelectorAll('.status-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const fd = new FormData();
+      fd.append('status', sel.value);
+      try {
+        await fetch(sel.dataset.url, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': RD_CSRF},
+          body: fd,
+        });
+      } catch (e) { /* ignore */ }
+    });
+  });
+</script>
 {% endblock %}
