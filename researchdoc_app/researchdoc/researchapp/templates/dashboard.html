@@ -179,7 +179,45 @@
           <p class="small text-muted mb-0">No activity yet.</p>
         {% endfor %}
       </div>
+
+      <!-- Citation styles breakdown -->
+      {% if citation_breakdown %}
+      <div class="sidebar-card mt-3">
+        <h6 class="fw-bold mb-3">Citation styles</h6>
+        <canvas id="citationChart" height="180"></canvas>
+        {{ citation_breakdown|json_script:"citation-data" }}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    const el = document.getElementById('citation-data');
+    if (!el || !window.Chart) return;
+    const rows = JSON.parse(el.textContent);
+    if (!rows.length) return;
+    const muted = getComputedStyle(document.documentElement)
+      .getPropertyValue('--rd-text-muted').trim() || '#64748b';
+    new Chart(document.getElementById('citationChart'), {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{
+          data: rows.map(r => r.count),
+          backgroundColor: ['#2f5fd4', '#0891b2', '#15a974', '#d97706', '#7c3aed'],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        plugins: { legend: { position: 'bottom', labels: { color: muted, boxWidth: 12, padding: 12 } } },
+        cutout: '62%',
+      },
+    });
+  })();
+</script>
 {% endblock %}
