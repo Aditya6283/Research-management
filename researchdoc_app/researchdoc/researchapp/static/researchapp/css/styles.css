@@ -614,3 +614,24 @@ footer {
 
 /* "spinner" reused in AI buttons */
 .spinner-border-sm { width: 1rem; height: 1rem; border-width: 0.18em; }
+
+/* Skip-to-content link (accessibility) — only visible on keyboard focus */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2000;
+  background: var(--rd-primary);
+  color: #fff !important;
+  padding: 8px 14px;
+  border-radius: 8px;
+  box-shadow: var(--rd-shadow);
+}
+
+/* Resource favourite star + reading-status controls */
+.fav-toggle { font-size: 1.05rem; line-height: 1; }
+.fav-toggle.text-warning { color: #f59e0b !important; }
+.status-select { min-width: 104px; }
+
+/* Dashboard chart keeps a sensible height */
+#citationChart { max-height: 220px; }
