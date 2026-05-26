@@ -8,18 +8,20 @@ This project follows the patterns and conventions taught in Applied Classes.
 
 # Credentials (ADMIN AND USER DETAILS)
 
+These accounts are created by the `seed_sample_data` command (see setup below).
+
 ## Regular User
 
 ```text
 email: aditya6283@gmail.com
-Password: Uq@123
+Password: Uq@62833
 ```
 
 ## Admin User
 
 ```text
 Username: admin
-Password: admin@123
+Password: admin123
 ```
 # Project Structure
 
@@ -316,34 +318,31 @@ pip install -r requirements.txt
 
 ## 4. Configure environment variables
 
-Create a `.env` file:
+Copy the example file and adjust as needed:
 
-```env
-DJANGO_SECRET_KEY=your-secret-key
-DJANGO_DEBUG=True
-MYSQL_PASSWORD=your-password
-OPENAI_API_KEY=your-api-key
+```bash
+cp .env.example .env
 ```
+
+Every variable has a sensible default, so the app runs with an empty `.env`.
+Leave `MYSQL_PASSWORD` blank to use **SQLite locally** (zero setup); set it to
+switch to MySQL like the deployment. Leave `OPENAI_API_KEY` blank to run the AI
+features in deterministic offline-fallback mode.
 
 ---
 
 # Database Setup
 
-The project uses MySQL in production.
-
-Example database configuration:
+The app uses **SQLite by default** for local development, so no database setup
+is required. When `MYSQL_PASSWORD` is set in the environment it switches to
+**MySQL**, which is what the UQCloud deployment uses.
 
 ```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'researchdoc_db',
-        'USER': 'root',
-        'PASSWORD': os.getenv('MYSQL_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '3306',
-    }
-}
+# researchdoc/settings.py selects the backend from the environment:
+if os.getenv('MYSQL_PASSWORD'):
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.mysql', ...}}
+else:
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', ...}}
 ```
 
 ---
@@ -360,6 +359,24 @@ python manage.py migrate
 
 ```bash
 python manage.py createsuperuser
+```
+
+---
+
+# Seed Sample Data (optional)
+
+Populates demo projects, papers, citations and the demo/admin accounts above:
+
+```bash
+python manage.py seed_sample_data
+```
+
+---
+
+# Run Tests
+
+```bash
+python manage.py test researchapp
 ```
 
 ---
@@ -385,14 +402,16 @@ http://127.0.0.1:8000/researchdoc/
 # Key Features
 
 - Research project management
-- Research resource management
-- Citation generation
-- AI-powered summaries
+- Research resource management (papers + links) with favourites and reading status
+- Citation generation in APA, IEEE, MLA, Chicago and Harvard
+- Citation export to BibTeX / plain text
+- AI-powered paper and project summaries
 - Research assistant chatbot
+- Full-text search across papers and summaries
 - Social authentication
 - User profiles
-- Dashboard analytics
-- Responsive Bootstrap 5 UI
+- Dashboard analytics (citation-style chart)
+- Responsive Bootstrap 5 UI with light/dark themes
 - SaaS-style architecture
 
 ---
