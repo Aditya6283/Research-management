@@ -281,7 +281,8 @@ def project_detail(request, pk):
     project = get_object_or_404(ResearchProject, pk=pk, owner=request.user)
     return render(request, 'project_detail.html', {
         'project': project,
-        'resources': project.resources.all(),
+        # Starred papers float to the top, then most recently uploaded.
+        'resources': project.resources.order_by('-is_favorite', '-uploaded_at'),
         'summaries': project.summaries.all(),
         'comparisons': project.comparisons.all(),
     })
