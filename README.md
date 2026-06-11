@@ -1,10 +1,8 @@
 
 # ResearchDoc
-A research management SaaS platform built with Django and Bootstrap 5 for INFS3202/7202 Web Information Systems at UQ.
+A research management SaaS platform built with Django and Bootstrap 5
 
-**Student:** Aditya Raj Singh (48979519)
-
-This project follows the patterns and conventions taught in Applied Classes.
+**Student:** Aditya Raj Singh
 
 # Credentials (ADMIN AND USER DETAILS)
 
@@ -17,12 +15,6 @@ email: aditya6283@gmail.com
 Password: Uq@62833
 ```
 
-## Admin User
-
-```text
-Username: admin
-Password: admin123
-```
 # Project Structure
 
 ```text
@@ -106,30 +98,6 @@ This contains:
 - API endpoints
 - templates
 - business logic
-
----
-
-# Request Flow
-
-When a user visits:
-
-```text
-https://infs3202-3dfe6012.uqcloud.net/researchdoc/
-```
-
-the request flows through:
-
-```text
-Browser
-→ Nginx
-→ Gunicorn
-→ Django WSGI
-→ urls.py
-→ views.py
-→ models.py
-→ templates
-→ response back to browser
-```
 
 ---
 
